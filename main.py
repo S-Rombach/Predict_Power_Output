@@ -1,4 +1,4 @@
-def main():
+vdef main():
     print("Hello from predict-power-output!")
 
 
