@@ -64,23 +64,24 @@ for dir in os.listdir(DATA_ORIG_DIR):
 column_translations = {
     "installation": "installation",
     "timestamp": "timestamp",
-    "Ladezustand": "state of charge",
-    "Batterie (Laden)": "battery charging",
-    "Batterie (Entladen)": "battery discharging",
-    "Netzeinspeisung": "grid feed-in",
-    "Netzbezug": "grid consumption",
-    "Solarproduktion Tracker 1": "solar production tracker 1",
-    "Solarproduktion Tracker 2": "solar production tracker 2",
-    "Solarproduktion": "solar production",
-    "Hausverbrauch": "house consumption",
-    "ADDITIONAL Verbrauch": "additional consumption",
-    "ext. Verbrauch": "external consumption",
-    "Σ Verbrauch": "total consumption",
-    "Wallbox (ID 0) Gesamtladeleistung": "wallbox (id 0) total charging power",
-    "Wallbox (ID 0) Netzbezug": "wallbox (id 0) grid consumption",
-    "Wallbox (ID 0) Solarladeleistung": "wallbox (id 0) solar charging power",
-    "Wallbox Gesamtladeleistung": "wallbox total charging power",
+    "Ladezustand": "soc",
+    "Batterie (Laden)": "bat_charge",
+    "Batterie (Entladen)": "bat_discharge",
+    "Netzeinspeisung": "grid_feed_in",
+    "Netzbezug": "grid_cons",
+    "Solarproduktion Tracker 1": "sol_prod_1",
+    "Solarproduktion Tracker 2": "sol_prod_2",
+    "Solarproduktion": "sol_prod",
+    "Hausverbrauch": "house_cons",
+    "ADDITIONAL Verbrauch": "add_cons",
+    "ext. Verbrauch": "ext_cons",
+    "Σ Verbrauch": "tot_cons",
+    "Wallbox (ID 0) Gesamtladeleistung": "wb_0_tot_charge",
+    "Wallbox (ID 0) Netzbezug": "wb_0_grid_cons",
+    "Wallbox (ID 0) Solarladeleistung": "wb_0_sol_charge",
+    "Wallbox Gesamtladeleistung": "wb_tot_charge"
 }
+
 
 all_data = all_data.rename(columns=column_translations)
 # After processing all files in the directory, save the combined data
