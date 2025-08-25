@@ -209,5 +209,7 @@ __marimo__/
 # personal
 ignored/
 data/raw/
-data/orig/
+data/orig/*
 
+!data/orig/solstice_equinox_berlin.csv
+!data/orig/solstice,equinox.csv
