@@ -63,7 +63,7 @@ all_data = pd.DataFrame(
 )
 
 peak_power_df = pd.read_csv(
-    os.path.join(DATA_ORIG_DIR, "peak_power_output.csv"),
+    os.path.join(DATA_ORIG_DIR, "installation_data.csv"),
     sep=";",
     index_col="installation",
 )
@@ -75,6 +75,11 @@ for dir in os.listdir(DATA_ORIG_DIR):
     peak_power = peak_power_df.loc[dir, "Wp"]
 
     print(f"Processing installation: {dir} with peak power {peak_power} W")
+
+    installation_data = pd.DataFrame(
+        columns=column_translations.values(),
+        dtype=str,
+    )
 
     for file in os.listdir(os.path.join(DATA_ORIG_DIR, dir)):
         if not file.endswith(".csv"):
@@ -96,12 +101,17 @@ for dir in os.listdir(DATA_ORIG_DIR):
         # normalize all power values as part of the peak power
         # provides comparability across installations
         # anonymize the installation owner further by not giving details about the installation
-        df[this_power_columns] = df[this_power_columns].apply(
-            pd.to_numeric, errors="coerce"
-        ).div(peak_power)
+        df[this_power_columns] = (
+            df[this_power_columns].apply(pd.to_numeric, errors="coerce").div(peak_power)
+        )
 
-        # Append the data to the all_data DataFrame
-        all_data = pd.concat([all_data, df], ignore_index=True, axis=0)
+        # Append the data to the installation_data DataFrame
+        installation_data = pd.concat(
+            [installation_data, df], ignore_index=True, axis=0
+        )
+
+    # Append the data to the all_data DataFrame
+    all_data = pd.concat([all_data, installation_data], ignore_index=True, axis=0)
 
 # After processing all files in the directory, save the combined data
 if not all_data.empty:
