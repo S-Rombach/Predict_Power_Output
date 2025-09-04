@@ -4,6 +4,7 @@
 """
 Fetches weather data from the DWD. Fills missing values and converts it into 15 minute intervals.
 """
+# %% imports --------------------------------------------------------
 import pandas as pd
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -64,13 +65,13 @@ historical_date_range = (
 
 # add all data from recent thats not in historical
 # prefer historical, because it has higher quality assurance
-cols = ["resolution", "dataset", "station_id", "parameter", "date"]
+key_cols = ["resolution", "dataset", "station_id", "parameter", "date"]
 """Columns to identify unique records."""
 
 recent_data_not_in_hist = all_period_data["recent"][
     ~all_period_data["recent"]
-    .set_index(cols)
-    .index.isin(all_period_data["historical"].set_index(cols).index)
+    .set_index(key_cols)
+    .index.isin(all_period_data["historical"].set_index(key_cols).index)
 ]
 
 data_combined = pd.concat([all_period_data["historical"], recent_data_not_in_hist])
@@ -81,15 +82,15 @@ data_combined = pd.concat([all_period_data["historical"], recent_data_not_in_his
 relevant_data = data_combined[data_combined["station_id"] == station_ids[0]]
 """Data is reduced to data from the nearest station. Missing data is filled with data from other stations."""
 
-cols = ["resolution", "dataset", "parameter", "date"]
+key_cols_wo_station = ["resolution", "dataset", "parameter", "date"]
 """Columns to keep when merging data across stations."""
 
 for stid in station_ids[1:]:
     rel_station_data = data_combined[data_combined["station_id"] == stid]
 
     station_data_not_in_rel = rel_station_data[
-        ~rel_station_data.set_index(cols).index.isin(
-            relevant_data.set_index(cols).index
+        ~rel_station_data.set_index(key_cols_wo_station).index.isin(
+            relevant_data.set_index(key_cols_wo_station).index
         )
     ]
 
