@@ -4,7 +4,7 @@
 """
 Fetches weather data from the DWD. Fills missing values and converts it into 15 minute intervals.
 """
-# %% imports --------------------------------------------------------
+# -- imports --------------------------------------------------------
 import pandas as pd
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
@@ -15,7 +15,7 @@ from src.config import (
     DATA_ORIG_DIR,
 )
 
-# %% init --------------------------------------------------------
+# -- init --------------------------------------------------------
 installation_df = pd.read_csv(
     os.path.join(DATA_ORIG_DIR, "installation_data.csv"),
     sep=";",
@@ -37,7 +37,7 @@ params = [
 
 all_period_data = {}
 
-# %% load data --------------------------------------------------------
+# -- load data --------------------------------------------------------
 for period in ("historical", "recent"):
     req = DwdObservationRequest(
         parameters=params,
@@ -61,7 +61,7 @@ historical_date_range = (
     .agg({"date": ["min", "max"]})
 )
 
-# %% merge time periods --------------------------------------------------------
+# -- merge time periods --------------------------------------------------------
 
 # add all data from recent thats not in historical
 # prefer historical, because it has higher quality assurance
@@ -77,7 +77,7 @@ recent_data_not_in_hist = all_period_data["recent"][
 data_combined = pd.concat([all_period_data["historical"], recent_data_not_in_hist])
 """Historical data and recent data combined, to provide a comprehensive timeline for each station and parameter."""
 
-# %% merge station data --------------------------------------------------------
+# -- merge station data --------------------------------------------------------
 
 relevant_data = data_combined[data_combined["station_id"] == station_ids[0]]
 """Data is reduced to data from the nearest station. Missing data is filled with data from other stations."""
@@ -96,7 +96,7 @@ for stid in station_ids[1:]:
 
     relevant_data = pd.concat([relevant_data, station_data_not_in_rel])
 
-# %% parameters to columns --------------------------------------------------------
+# -- parameters to columns --------------------------------------------------------
 
 # All information except date and values is removed.
 rad_sun_data = relevant_data.drop(
@@ -109,7 +109,7 @@ rad_sun_data = rad_sun_data.pivot(
 ).reset_index()
 rad_sun_data.columns.name = None
 
-# %% create missing time steps and fill missing values --------------------------------------------------------
+# -- create missing time steps and fill missing values --------------------------------------------------------
 rad_sun_data = rad_sun_data.sort_values("date").set_index("date")
 
 # create full 10 min index
@@ -144,7 +144,7 @@ rad_sun_data.fillna({"sunshine_duration": rad_sun_data["mean_sun"]}, inplace=Tru
 
 rad_sun_data.drop(columns=["data_temp", "mean_rad", "mean_sun"], inplace=True)
 
-# %% restructuring to 15 min steps --------------------------------------------------------
+# -- restructuring to 15 min steps --------------------------------------------------------
 
 rad_sun_data = rad_sun_data.set_index("date")
 
