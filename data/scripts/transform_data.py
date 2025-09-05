@@ -58,6 +58,7 @@ power_columns = [
 ]
 """The columns that are used for power measurements."""
 
+
 def ensure_utc_series(s: pd.Series, target_timezone) -> pd.Series:
     """
     Convert a pandas Series of timestamps to UTC timezone-aware datetimes.
@@ -83,16 +84,22 @@ def ensure_utc_series(s: pd.Series, target_timezone) -> pd.Series:
     s = pd.to_datetime(s, utc=False, errors="raise")
     if s.dt.tz is None:
         if target_timezone is None or target_timezone == "":
-            raise ValueError("Series must be timezone-aware or target_timezone must be set."
-                             f" Express the timestamps with a timezone or provide a timezone in '{INSTALLATION_DATA_FILENAME}'.")
+            raise ValueError(
+                "Series must be timezone-aware or target_timezone must be set."
+                f" Express the timestamps with a timezone or provide a timezone in '{INSTALLATION_DATA_FILENAME}'."
+            )
         elif target_timezone.lower() == "utc":
             s = s.dt.tz_localize("UTC")
-        elif target_timezone.lower().startswith("utc+") or target_timezone.lower().startswith("utc-"):
+        elif target_timezone.lower().startswith(
+            "utc+"
+        ) or target_timezone.lower().startswith("utc-"):
             timeshift_hours = int(target_timezone[3:])
             fixed_tz = datetime.timezone(datetime.timedelta(hours=timeshift_hours))
             s = s.dt.tz_localize(fixed_tz)
         else:
-            s = s.dt.tz_localize(target_timezone, ambiguous="infer", nonexistent="shift_forward")
+            s = s.dt.tz_localize(
+                target_timezone, ambiguous="infer", nonexistent="shift_forward"
+            )
     return s.dt.tz_convert("UTC")
 
 
@@ -111,7 +118,7 @@ for dir in os.listdir(DATA_ORIG_DIR):
     if not os.path.isdir(os.path.join(DATA_ORIG_DIR, dir)):
         continue
 
-    peak_power = installation_metadata.loc[dir, "Wp"]
+    peak_power = float(installation_metadata.loc[dir, "Wp"])
     timezone = installation_metadata.loc[dir, "timezone"]
 
     print(f"Processing installation: {dir} with peak power {peak_power} W")
@@ -136,11 +143,11 @@ for dir in os.listdir(DATA_ORIG_DIR):
 
         df["soc"] = df["soc"].apply(pd.to_numeric, errors="coerce").div(100)
 
-        this_power_columns = [col for col in power_columns if col in df.columns]
-
         # normalize all power values as part of the peak power
         # provides comparability across installations
         # anonymize the installation owner further by not giving details about the installation
+        this_power_columns = [col for col in power_columns if col in df.columns]
+
         df[this_power_columns] = (
             df[this_power_columns].apply(pd.to_numeric, errors="coerce").div(peak_power)
         )
@@ -153,8 +160,12 @@ for dir in os.listdir(DATA_ORIG_DIR):
         )
 
     # Append the data to the all_data DataFrame
-    all_power_data = pd.concat([all_power_data, installation_data], ignore_index=True, axis=0)
+    all_power_data = pd.concat(
+        [all_power_data, installation_data], ignore_index=True, axis=0
+    )
 
 # After processing all files in the directory, save the combined data
 if not all_power_data.empty:
-    all_power_data.to_csv(os.path.join(DATA_RAW_DIR, DATA_RAW_FILENAME), index=False, sep=";")
+    all_power_data.to_csv(
+        os.path.join(DATA_RAW_DIR, DATA_RAW_FILENAME), index=False, sep=";"
+    )
