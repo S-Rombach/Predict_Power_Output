@@ -2,6 +2,7 @@
 This module contains configuration constants for the project.
 It defines paths for data directories, model directories, and other project-related constants.
 """
+
 import os
 from pathlib import Path
 
@@ -48,6 +49,10 @@ TEST_RAW_FILENAME = "test_raw_split.csv"
 """ Name of the test data file after splitting. """
 VALIDATION_RAW_FILENAME = "validation_raw_split.csv"
 """ Name of the validation data file after splitting. """
+INSTALLATION_DATA_FILENAME = "installation_data.csv"
+""" Name of the file with installation metadata. """
+POWER_WEATHER_FILENAME = "power_weather_data.csv"
+""" Name of the file with combined power data enriched with weather data. """
 
 
 MODELS_DIR = os.path.join(BASE_DIR, "models")
