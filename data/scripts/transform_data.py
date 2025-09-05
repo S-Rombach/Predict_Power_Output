@@ -3,13 +3,14 @@
 
 
 import os
-import sys
 import pandas as pd
+import datetime
 
 from src.config import (
     DATA_RAW_DIR,
     DATA_ORIG_DIR,
     DATA_RAW_FILENAME,
+    INSTALLATION_DATA_FILENAME,
 )
 
 # Ensure the raw data directory exists
@@ -57,13 +58,51 @@ power_columns = [
 ]
 """The columns that are used for power measurements."""
 
-all_data = pd.DataFrame(
+def ensure_utc_series(s: pd.Series, target_timezone) -> pd.Series:
+    """
+    Convert a pandas Series of timestamps to UTC timezone-aware datetimes.
+
+    Parameters
+    ----------
+    s : pd.Series
+        Series of datetime strings or naive/aware Timestamps.
+    target_timezone : str or tzinfo
+        The timezone to localize naive timestamps. Can be a string like 'Europe/Berlin', 'UTC', 'UTC+1', etc.,
+        or a tzinfo object. If the Series is already timezone-aware, this is ignored.
+
+    Returns
+    -------
+    pd.Series
+        Series of UTC timezone-aware Timestamps.
+
+    Raises
+    ------
+    ValueError
+        If the Series is naive and no target_timezone is provided.
+    """
+    s = pd.to_datetime(s, utc=False, errors="raise")
+    if s.dt.tz is None:
+        if target_timezone is None or target_timezone == "":
+            raise ValueError("Series must be timezone-aware or target_timezone must be set."
+                             f" Express the timestamps with a timezone or provide a timezone in '{INSTALLATION_DATA_FILENAME}'.")
+        elif target_timezone.lower() == "utc":
+            s = s.dt.tz_localize("UTC")
+        elif target_timezone.lower().startswith("utc+") or target_timezone.lower().startswith("utc-"):
+            timeshift_hours = int(target_timezone[3:])
+            fixed_tz = datetime.timezone(datetime.timedelta(hours=timeshift_hours))
+            s = s.dt.tz_localize(fixed_tz)
+        else:
+            s = s.dt.tz_localize(target_timezone, ambiguous="infer", nonexistent="shift_forward")
+    return s.dt.tz_convert("UTC")
+
+
+all_power_data = pd.DataFrame(
     columns=column_translations.values(),
     dtype=str,
 )
 
-peak_power_df = pd.read_csv(
-    os.path.join(DATA_ORIG_DIR, "installation_data.csv"),
+installation_metadata = pd.read_csv(
+    os.path.join(DATA_ORIG_DIR, INSTALLATION_DATA_FILENAME),
     sep=";",
     index_col="installation",
 )
@@ -72,7 +111,8 @@ for dir in os.listdir(DATA_ORIG_DIR):
     if not os.path.isdir(os.path.join(DATA_ORIG_DIR, dir)):
         continue
 
-    peak_power = peak_power_df.loc[dir, "Wp"]
+    peak_power = installation_metadata.loc[dir, "Wp"]
+    timezone = installation_metadata.loc[dir, "timezone"]
 
     print(f"Processing installation: {dir} with peak power {peak_power} W")
 
@@ -105,14 +145,16 @@ for dir in os.listdir(DATA_ORIG_DIR):
             df[this_power_columns].apply(pd.to_numeric, errors="coerce").div(peak_power)
         )
 
+        df["timestamp"] = ensure_utc_series(df["timestamp"], timezone)
+
         # Append the data to the installation_data DataFrame
         installation_data = pd.concat(
             [installation_data, df], ignore_index=True, axis=0
         )
 
     # Append the data to the all_data DataFrame
-    all_data = pd.concat([all_data, installation_data], ignore_index=True, axis=0)
+    all_power_data = pd.concat([all_power_data, installation_data], ignore_index=True, axis=0)
 
 # After processing all files in the directory, save the combined data
-if not all_data.empty:
-    all_data.to_csv(os.path.join(DATA_RAW_DIR, DATA_RAW_FILENAME), index=False, sep=";")
+if not all_power_data.empty:
+    all_power_data.to_csv(os.path.join(DATA_RAW_DIR, DATA_RAW_FILENAME), index=False, sep=";")

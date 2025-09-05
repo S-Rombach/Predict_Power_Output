@@ -8,29 +8,17 @@ Fetches weather data from the DWD. Fills missing values and converts it into 15 
 import pandas as pd
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 
-import datetime as dt
-
 import os
 from src.config import (
     DATA_ORIG_DIR,
+    DATA_RAW_DIR,
+    DATA_RAW_FILENAME,
+    INSTALLATION_DATA_FILENAME,
+    POWER_WEATHER_FILENAME
 )
 
-# -- init --------------------------------------------------------
-installation_df = pd.read_csv(
-    os.path.join(DATA_ORIG_DIR, "installation_data.csv"),
-    sep=";",
-    index_col="installation",
-)
 
-station_ids = str(
-    installation_df.loc["elegant_eagle", "closest_weather_station_ids"]
-).split("|")
-
-start_date = dt.datetime(2020, 4, 1)
-end_date = dt.datetime(2025, 9, 1)
-
-
-def fetch_dwd_data(station_ids, start_date, end_date):
+def fetch_sunshine_radiation_data(station_ids, start_date, end_date):
     """
     Fetches and processes weather data from the German Weather Service (DWD) for specified stations and date range.
     This function retrieves 10-minute interval solar radiation and sunshine duration data for the given station IDs
@@ -141,7 +129,7 @@ def fetch_dwd_data(station_ids, start_date, end_date):
 
     # Reindex → missing data is NaN
     rad_sun_data = rad_sun_data.reindex(full_index).reset_index()
-    rad_sun_data.rename(columns={"index": "date"}, inplace=True)
+    rad_sun_data = rad_sun_data.rename(columns={"index": "date"})
 
     rad_sun_data["data_temp"] = rad_sun_data["date"].dt.strftime("%m-%d-%H-%M")
 
@@ -158,10 +146,10 @@ def fetch_dwd_data(station_ids, start_date, end_date):
 
     # filling the nans with the mean over all years may be way off
     # but for the sake of having a complete dataset, ...
-    rad_sun_data.fillna({"radiation_global": rad_sun_data["mean_rad"]}, inplace=True)
-    rad_sun_data.fillna({"sunshine_duration": rad_sun_data["mean_sun"]}, inplace=True)
+    rad_sun_data = rad_sun_data.fillna({"radiation_global": rad_sun_data["mean_rad"]})
+    rad_sun_data = rad_sun_data.fillna({"sunshine_duration": rad_sun_data["mean_sun"]})
 
-    rad_sun_data.drop(columns=["data_temp", "mean_rad", "mean_sun"], inplace=True)
+    rad_sun_data = rad_sun_data.drop(columns=["data_temp", "mean_rad", "mean_sun"])
 
     # -- restructuring to 15 min steps --------------------------------------------------------
 
@@ -186,5 +174,63 @@ def fetch_dwd_data(station_ids, start_date, end_date):
 
     # sum the 5 min intervals to 15 min intervals
     rad_sun_data_15min = rs_5min.resample("15min").sum()
+    rad_sun_data_15min.index.name = "timestamp"
 
     return rad_sun_data_15min
+
+
+# -- init --------------------------------------------------------
+installation_df = pd.read_csv(
+    os.path.join(DATA_ORIG_DIR, INSTALLATION_DATA_FILENAME),
+    sep=";",
+    index_col="installation",
+)
+
+
+power_data_df = pd.read_csv(os.path.join(DATA_RAW_DIR, DATA_RAW_FILENAME), sep=";")
+power_data_df["timestamp"] = pd.to_datetime(
+    power_data_df["timestamp"], errors="raise", utc=True
+)
+
+for inst in power_data_df["installation"].unique():
+    if inst not in installation_df.index:
+        raise ValueError(
+            f"Installation '{inst}' not found in '{INSTALLATION_DATA_FILENAME}'. Weather data cannot be fetched."
+            " Add the nearest weather station IDs for the installation to the file."
+        )
+
+    # Get the weather station IDs for the current installation
+    station_ids = str(installation_df.loc[inst, "closest_weather_station_ids"]).split(
+        "|"
+    )
+
+    if not station_ids or station_ids == [""]:
+        raise ValueError(
+            f"No weather station IDs found for installation '{inst}' in '{INSTALLATION_DATA_FILENAME}'."
+        )
+
+    power_data_inst_df = power_data_df[power_data_df["installation"] == inst]
+
+    start_date = power_data_inst_df["timestamp"].min()
+    end_date = power_data_inst_df["timestamp"].max()
+
+    weather_data = fetch_sunshine_radiation_data(station_ids, start_date, end_date)
+    weather_data = weather_data.reset_index()
+
+    if weather_data is None or weather_data.empty:
+        print(
+            f"No weather data found for installation '{inst}' with stations {station_ids}."
+        )
+        continue
+
+    # -- Merge the weather data with the power data --------------------------------------------------------
+
+    weather_data["installation"] = inst
+
+    power_data_df = pd.merge(
+        power_data_df, weather_data, how="left", on=["timestamp", "installation"]
+    )
+
+power_data_df.to_csv(
+    os.path.join(DATA_RAW_DIR, POWER_WEATHER_FILENAME), sep=";", index=False
+)
