@@ -16,6 +16,7 @@ To gather all power data of all installations:
 ## Conventions
 
 * All serialized timestamps are expressed in utc with timezone info. This is to ensure clarity about the time across multiple data inputs. For example, the DWD uses utc for all its reports, but installation timestamps are local times without timezone information.
+* According to the [documentation](https://wetterdienst.readthedocs.io/en/latest/data/parameters.html#list-of-parameters) the unit of sunshine duration in the dataset `sd_10` (data point every 10 minutes) is `hours`, yet the maximum value is 601.2. The value is considered to be in seconds.
 
 ## Installation metadata file
 
