@@ -210,6 +210,11 @@ __marimo__/
 ignored/
 data/raw/
 data/orig/*
+models/*.*
+models/*/*
+
+!models/*/*.json
+!models/*/*.txt
 
 !data/orig/solstice_equinox_berlin.csv
 !data/orig/solstice,equinox.csv
