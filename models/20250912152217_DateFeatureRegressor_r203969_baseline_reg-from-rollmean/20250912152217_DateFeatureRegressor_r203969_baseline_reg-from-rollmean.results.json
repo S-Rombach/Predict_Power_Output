@@ -1,0 +1,14 @@
+{
+  "model_name": "20250912152217_DateFeatureRegressor_r203969_baseline_reg-from-rollmean",
+  "timestamp": "20250912152217",
+  "model_purpose": "baseline",
+  "model_class": "DateFeatureRegressor",
+  "special_features": "reg-from-rollmean",
+  "MAE": 1.2875968733647305,
+  "MSE": 2.695147868718229,
+  "RMSE": 1.6416905520585263,
+  "MAPE": 1.0214598533444592,
+  "MedAE": 1.151875,
+  "R2": 0.39699518175797777,
+  "ExplainedVar": 0.3970432457424231
+}
