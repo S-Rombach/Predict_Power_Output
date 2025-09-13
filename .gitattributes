@@ -1,3 +1,7 @@
 *.ipynb filter=nbstripout
 *.zpln filter=nbstripout
 *.ipynb diff=ipynb
+
+# compare models should be visible to make results easy to access
+# without the need to run the notebook
+models/compare_models.ipynb -filter

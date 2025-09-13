@@ -213,6 +213,7 @@ data/orig/*
 models/*.*
 models/*/*
 
+!models/compare_models.ipynb
 !models/*/*.json
 !models/*/*.txt
 
