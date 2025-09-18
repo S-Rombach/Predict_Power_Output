@@ -14,7 +14,7 @@ from src.config import (
     DATA_RAW_DIR,
     DATA_RAW_FILENAME,
     INSTALLATION_DATA_FILENAME,
-    POWER_WEATHER_FILENAME
+    POWER_DWD_WEATHER_FILENAME
 )
 
 
@@ -232,5 +232,5 @@ for inst in power_data_df["installation"].unique():
     )
 
 power_data_df.to_csv(
-    os.path.join(DATA_RAW_DIR, POWER_WEATHER_FILENAME), sep=";", index=False
+    os.path.join(DATA_RAW_DIR, POWER_DWD_WEATHER_FILENAME), sep=";", index=False
 )
