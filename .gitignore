@@ -219,3 +219,4 @@ models/*/*
 
 !data/orig/solstice_equinox_berlin.csv
 !data/orig/solstice,equinox.csv
+!data/orig/wc_4677_codes_simplified.csv

@@ -32,3 +32,9 @@ The file contains the following data:
 | closest_weather_station_names | string         | \| -separated, the names of the closest weather stations, to be human readable |
 | closest_weather_station_ids   | string         | \| -separated, the ids of the closest weather stations |
 | timezone                      | string rep. tz | The timezone of the timestamps of the installation are in. If the timestamps are not localized, this timezone is used, otherwise an error is raised. The timezone to localize naive timestamps. Can be a string like 'Europe/Berlin', 'UTC', 'UTC+1', etc., or a tzinfo object. If the Series is already timezone-aware, this is ignored. |
+
+## Data
+
+### Weather codes
+
+The file 'wc_4677_codes_simplified.csv' is a shrunken version of the list of all [weather codes](https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM) to reduce complexity. The shrinking was done with common sense, but without particular meteorological domain knowledge. If in doubt, use the weather codes instead.

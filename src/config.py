@@ -53,7 +53,8 @@ INSTALLATION_DATA_FILENAME = "installation_data.csv"
 """ Name of the file with installation metadata. """
 POWER_WEATHER_FILENAME = "power_weather_data.csv"
 """ Name of the file with combined power data enriched with weather data. """
-
+WC_CODES_FILENAME = "wc_4677_codes_simplified.csv"
+""" Name of the file with weather condition codes and their descriptions. """
 
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 """ Directory for machine learning models and related files. """
