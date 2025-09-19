@@ -11,12 +11,12 @@ To gather all power data of all installations:
     * add an entry to the `installation_data.csv`, using the directories name as key in the column `installation`.
     * with `find_nearest_dwd_station.ipynb` you can find the mandatory `closest_weather_station_ids`. At least one is necessary.
 * run `transform_data.py`, creating `data\raw\power_data.csv`
-* run `add_weather_data_to_power_data.py`, creating `data\raw\power_weather_data.csv`
+* run `add_[WDP]_weather_data_to_power_data.py`, creating `data\raw\power_[WDP]_weather_data.csv`. `[WDP]` is a weather data provider (either `dwd` or `openmeteo`).
 
 ## Conventions
 
 * All serialized timestamps are expressed in utc with timezone info. This is to ensure clarity about the time across multiple data inputs. For example, the DWD uses utc for all its reports, but installation timestamps are local times without timezone information.
-* According to the [documentation](https://wetterdienst.readthedocs.io/en/latest/data/parameters.html#list-of-parameters) the unit of sunshine duration in the dataset `sd_10` (data point every 10 minutes) is `hours`, yet the maximum value is 601.2. The value is considered to be in seconds.
+* According to the [dwd documentation](https://wetterdienst.readthedocs.io/en/latest/data/parameters.html#list-of-parameters) the unit of sunshine duration in the dwd dataset `sd_10` (data point every 10 minutes) is `hours`, yet the maximum value is 601.2. The value is considered to be in seconds.
 * Custom models are not pickled, because the source code is not packaged. Therefore, only the config and results are serialized.
 
 ## Installation metadata file
@@ -29,9 +29,11 @@ The file contains the following data:
 | ----------------------------- | -------------- | -------- |
 | installation                  | string         | the name of the station |
 | Wp                            | int            | the peak power output in W |
-| closest_weather_station_names | string         | \| -separated, the names of the closest weather stations, to be human readable |
-| closest_weather_station_ids   | string         | \| -separated, the ids of the closest weather stations |
+| closest_weather_station_names | string         | \|-separated, the names of the closest weather stations, to be human readable |
+| closest_weather_station_ids   | string         | \|-separated, the ids of the closest weather stations |
 | timezone                      | string rep. tz | The timezone of the timestamps of the installation are in. If the timestamps are not localized, this timezone is used, otherwise an error is raised. The timezone to localize naive timestamps. Can be a string like 'Europe/Berlin', 'UTC', 'UTC+1', etc., or a tzinfo object. If the Series is already timezone-aware, this is ignored. |
+| latitude                      | float          | The latitude of the installation. |
+| longitude                     | float          | The longitude of the installation. |
 
 ## Data
 
