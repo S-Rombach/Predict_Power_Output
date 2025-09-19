@@ -37,6 +37,16 @@ The file contains the following data:
 
 ## Data
 
+### Source DWD
+
+Weather data by [Dwd](https://www.dwd.de) using the package [wetterdienst](https://github.com/earthobservations/wetterdienst/tree/v0.112.0) [https://doi.org/10.5281/zenodo.3960624](https://doi.org/10.5281/zenodo.3960624)
+
+### Source OpenMeteo
+
+Weather data by [Open-Meteo.com](https://open-meteo.com/).
+
+Zippenfenig, P. (2023). Open-Meteo.com Weather API [Computer software]. Zenodo. [https://doi.org/10.5281/ZENODO.7970649](https://doi.org/10.5281/ZENODO.7970649)
+
 ### Weather codes
 
-The file 'wc_4677_codes_simplified.csv' is a shrunken version of the list of all [weather codes](https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM) to reduce complexity. The shrinking was done with common sense, but without particular meteorological domain knowledge. If in doubt, use the weather codes instead.
+The file `wc_4677_codes_simplified.csv` is a shrunken version of the list of all [weather codes](https://www.nodc.noaa.gov/archive/arc0021/0002199/1.1/data/0-data/HTML/WMO-CODE/WMO4677.HTM) to reduce complexity. The shrinking was done with common sense, but without particular meteorological domain knowledge. If in doubt, use the weather codes instead.
