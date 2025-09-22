@@ -1,0 +1,14 @@
+{
+  "alpha_per_target": false,
+  "alphas": [
+    0.1,
+    1.0,
+    10.0
+  ],
+  "cv": null,
+  "fit_intercept": true,
+  "gcv_mode": null,
+  "scoring": null,
+  "store_cv_results": null,
+  "store_cv_values": "deprecated"
+}

@@ -1,0 +1,14 @@
+{
+  "model_name": "20250922132743_RidgeCV_r205617_feat-eng_trig-doy",
+  "timestamp": "20250922132743",
+  "model_purpose": "feat-eng",
+  "model_class": "RidgeCV",
+  "special_features": "trig-doy",
+  "MAE": 1.172957717627868,
+  "MSE": 1.955092366109727,
+  "RMSE": 1.3982461750742345,
+  "MAPE": 12762823451423.217,
+  "MedAE": 1.068609162314075,
+  "R2": 0.5617052838150303,
+  "ExplainedVar": 0.5674877436973582
+}
