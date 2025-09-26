@@ -1,8 +1,9 @@
-""" Contains custom transformers built for this project. """
+"""Contains custom transformers built for this project."""
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
+from typing import Union
 
 
 class MissingFlagTransformer(BaseEstimator, TransformerMixin):
@@ -88,3 +89,98 @@ class CategoryFromThresholdTransformer(BaseEstimator, TransformerMixin):
             input_features = self.feature_names_in_
 
         return np.array([f"{c}_cat" for c in input_features])
+
+
+class DayOfYearTransformer(BaseEstimator, TransformerMixin):
+    """
+    DayOfYearTransformer applies a trigonometric transformation (sin or cos) to the day-of-year
+    component of datetime features, enabling cyclical encoding for machine learning models.
+    Parameters
+    ----------
+    trig_function : str
+        The trigonometric function to apply. Must be either "sin" or "cos".
+    Methods
+    -------
+    fit(X, y=None)
+        Fits the transformer to the input data. Stores feature names for later use.
+    transform(X)
+        Transforms the input datetime features into their cyclical representation using the
+        specified trigonometric function.
+    get_feature_names_out(input_features=None)
+        Returns the output feature names after transformation.
+    Notes
+    -----
+    - Supports input as pandas Series, pandas DataFrame, or numpy ndarray with datetime64 dtype.
+    - Handles leap years correctly when calculating the day-of-year and days-in-year.
+    - Raises ValueError for unsupported input types or invalid trig_function values.
+    """
+
+    def __init__(self, trig_function):
+        self.trig_function = trig_function
+
+    def _extract_dayofyear(
+        self, x: Union[pd.Series, pd.DataFrame, np.ndarray]
+    ) -> Union[pd.DataFrame, np.ndarray]:
+        if isinstance(x, pd.Series) and np.issubdtype(x.dtype, np.datetime64):
+            return x.dt.dayofyear.to_frame()
+        elif isinstance(x, pd.DataFrame):
+            x = x.copy()
+            for col in x.columns:
+                x[col] = x[col].dt.dayofyear
+            return x
+        elif isinstance(x, np.ndarray):
+            days = x.astype("datetime64[D]")
+            years = days.astype("datetime64[Y]")
+            doy = (days - years).astype(int) + 1
+            return doy.astype(int)
+        else:
+            raise ValueError(
+                "Input must be a pandas Series with datetime64 dtype"
+                " or a DataFrame with datetime64 columns."
+            )
+
+    def _extract_days_in_year(
+        self, x: Union[pd.Series, pd.DataFrame, np.ndarray]
+    ) -> Union[pd.DataFrame, np.ndarray]:
+        if isinstance(x, pd.Series) and np.issubdtype(x.dtype, np.datetime64):
+            return x.dt.is_leap_year.map({True: 366, False: 365}).to_frame()
+        elif isinstance(x, pd.DataFrame):
+            x = x.copy()
+            for col in x.columns:
+                x[col] = x[col].dt.is_leap_year.map({True: 366, False: 365})
+            return x
+        elif isinstance(x, np.ndarray):
+            years = x.astype("datetime64[Y]").astype(int) + 1970
+            leap = (years % 4 == 0) & ((years % 100 != 0) | (years % 400 == 0))
+            return np.where(leap, 366, 365)
+        else:
+            raise ValueError(
+                "Input must be a pandas Series with datetime64 dtype"
+                " or a DataFrame with datetime64 columns."
+            )
+
+    def fit(self, X, y=None):
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = list(X.columns)
+        else:
+            self.feature_names_in_ = list([f"x{i}" for i in range(X.shape[1])])
+        return self
+
+    def transform(self, X):
+        X_ = X.copy()
+
+        if self.trig_function == "sin":
+            return np.sin(
+                self._extract_dayofyear(X_) / self._extract_days_in_year(X_) * 2 * np.pi
+            )
+        elif self.trig_function == "cos":
+            return np.cos(
+                self._extract_dayofyear(X_) / self._extract_days_in_year(X_) * 2 * np.pi
+            )
+        else:
+            raise ValueError("trig_function must be 'sin' or 'cos'")
+
+    def get_feature_names_out(self, input_features=None):
+        if input_features is None:
+            return np.array([f"doy_{self.trig_function}"])
+        return np.array([f"{c}_doy_{self.trig_function}" for c in input_features])
