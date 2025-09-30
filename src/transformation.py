@@ -1,6 +1,7 @@
 """Custom data transformation functions used in different parts of the project."""
 
-from typing import List
+from typing import List, Union
+import datetime
 from datetime import datetime as dt
 import numpy as np
 import pandas as pd
@@ -9,7 +10,13 @@ from retry_requests import retry
 import openmeteo_requests
 
 
-def fetch_openmeteo_weather_data(lat, lon, start_date, end_date, wc_codes=None):
+def fetch_openmeteo_weather_data(
+    lat: float,
+    lon: float,
+    start_date: Union[pd.Timestamp, datetime.date, str],
+    end_date: Union[pd.Timestamp, datetime.date, str],
+    wc_codes: Union[dict[int, str], None] = None,
+) -> tuple[pd.DataFrame, dict]:
     """
     Fetch weather data from the Open-Meteo API for a given latitude and longitude
     between start_date and end_date.
@@ -73,9 +80,7 @@ def fetch_openmeteo_weather_data(lat, lon, start_date, end_date, wc_codes=None):
         if end_date < today:
             requests.append((hist_url, start_date, end_date))
         else:
-            requests.append(
-                (hist_url, start_date, today - pd.Timedelta(days=1))
-            )
+            requests.append((hist_url, start_date, today - pd.Timedelta(days=1)))
             requests.append((curr_url, today, end_date))
     else:
         requests.append((curr_url, start_date, end_date))
@@ -124,7 +129,7 @@ def fetch_openmeteo_weather_data(lat, lon, start_date, end_date, wc_codes=None):
         hourly_data["cloud_cover"] = np.nan_to_num(hourly_cloud_cover, nan=0.0)
         hourly_data["snow_depth"] = np.nan_to_num(
             hourly_snow_depth, nan=0.0
-        )  # das hier ist NAN, wie rettet man das?
+        )
         hourly_data["sunshine_duration"] = np.nan_to_num(
             hourly_sunshine_duration, nan=0.0
         )
