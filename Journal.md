@@ -9,7 +9,7 @@
       * there is not much data to build the mean and
       * the mean may differ much from the true value.
 
-## Doings
+## Doings  
 
 ### 29.09.25
 
