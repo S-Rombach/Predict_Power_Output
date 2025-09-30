@@ -8,9 +8,31 @@
     * Missing values are filled with means from the last years, even when
       * there is not much data to build the mean and
       * the mean may differ much from the true value.
-* Custom models are not pickled, because the source code is not packaged. Therefore, only the config and results are serialized.
 
 ## Doings
+
+### 29.09.25
+
+* abstract some code to make data preprocessing available everywhere
+* read docs and create basic streamlit app  
+
+### 26.09.25
+
+* abstract some code
+  * to make loading of serialized models possible
+  * to make data preprocessing available everywhere
+* add link required by license
+* extend readme
+
+### 22.09.25
+
+* create open meteo model
+
+### 19.09.25
+
+* eda of open meteo data
+* readme clean up
+* data dictionary clean up
 
 ### 18.09.25
 
