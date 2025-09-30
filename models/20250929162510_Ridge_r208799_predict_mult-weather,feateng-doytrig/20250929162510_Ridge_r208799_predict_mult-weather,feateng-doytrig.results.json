@@ -1,0 +1,14 @@
+{
+  "model_name": "20250929162510_Ridge_r208799_predict_mult-weather,feateng-doytrig",
+  "timestamp": "20250929162510",
+  "model_purpose": "predict",
+  "model_class": "Ridge",
+  "special_features": "mult-weather,feateng-doytrig",
+  "MAE": 0.5733226551700136,
+  "MSE": 0.5364857469350853,
+  "RMSE": 0.7324518734600146,
+  "MAPE": 0.5741984088645254,
+  "MedAE": 0.5262299078891415,
+  "R2": 0.8799681850206311,
+  "ExplainedVar": 0.8830188832903609
+}
