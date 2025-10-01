@@ -4,7 +4,9 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
+
+# import seaborn as sns
+import plotly.express as px
 from datetime import date, timedelta
 
 
@@ -15,12 +17,24 @@ from src.transformation import (
     prepare_aggregate_openmeteo_data,
 )
 
-st.set_page_config(page_title="Date Plot Demo", layout="centered")
+st.set_page_config(page_title="Predict Power Output", layout="centered")
 
-st.title("Date Plot Demo")
-start_date = st.date_input("Select start date", value=date.today(), format="YYYY-MM-DD")
+st.title("Predict Power Output")
+earliest_date = date.today() - timedelta(days=365)
+latest_date = date.today() + timedelta(days=10)
+start_date = st.date_input(
+    "Select start date",
+    value=date.today(),
+    format="YYYY-MM-DD",
+    min_value=earliest_date,
+    max_value=latest_date,
+)
 end_date = st.date_input(
-    "Select end date", value=date.today() + timedelta(days=1), format="YYYY-MM-DD"
+    "Select end date",
+    value=date.today() + timedelta(days=1),
+    format="YYYY-MM-DD",
+    min_value=start_date,
+    max_value=latest_date,
 )
 start = st.button("Start")
 
@@ -64,27 +78,34 @@ if start:
         ],
     )
 
-    # df_doy["date"] = pd.to_datetime(df_doy["date"])
     df_doy["predicted"] = lp.predict(df_doy)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    sns.lineplot(data=df_doy, x="date", y="predicted", label="Predicted", ax=ax)
-    ax.set_xticks(df_doy["date"].unique())
-    ax.set_xticklabels(
-        [d.strftime("%Y-%m-%d") for d in df_doy["date"].unique()],
-        rotation=45,
-        ha="right",
-    )
-    ax.set_ylim(0, None)
-    ax.text(
-        0.98,
-        0.02,
-        "Contains weather data by https://open-meteo.com/",
-        transform=ax.transAxes,
-        fontsize=8,
-        verticalalignment="bottom",
-        horizontalalignment="right",
-        color="gray",
+    fig = px.line(
+        data_frame=df_doy,
+        x="date",
+        y="predicted",
+        title="Predicted Power Output",
+        labels={"predicted": "peak power hours [W<sub>p</sub>h]", "date": "Date"},
     )
 
-    st.pyplot(fig)
+    fig.update_xaxes(
+        tickvals=df_doy["date"].unique(),
+        ticktext=[d.strftime("%Y-%m-%d") for d in df_doy["date"].unique()],
+        tickangle=45,
+    )
+
+    fig.update_yaxes(range=[0, None])
+
+    fig.add_annotation(
+        x=1,
+        y=0,
+        xref="paper",
+        yref="paper",
+        xanchor="right",
+        yanchor="bottom",
+        text="Contains weather data by https://open-meteo.com/",
+        showarrow=False,
+        font=dict(size=8, color="gray"),
+    )
+
+    st.plotly_chart(fig)
