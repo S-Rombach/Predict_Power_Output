@@ -11,6 +11,17 @@
 
 ## Doings  
 
+### 01.10.25
+
+* prettify the app
+* dropdown to choose the model
+
+### 30.09.25
+
+* allow the use of different openmeteo api for a wider date range (namely into the future)
+* check in model binaries, prequisites of the app
+* basic app to plot prediction of power output over the next days
+
 ### 29.09.25
 
 * abstract some code to make data preprocessing available everywhere
