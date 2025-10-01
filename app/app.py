@@ -36,6 +36,18 @@ end_date = st.date_input(
     min_value=start_date,
     max_value=latest_date,
 )
+
+
+subdirs = [
+    d for d in os.listdir(MODELS_DIR) if os.path.isdir(os.path.join(MODELS_DIR, d)) and not d.startswith(".") 
+    and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.model.pkl"))
+    and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.pipeline.pkl"))
+]
+
+selected_model = st.selectbox("Select Model", subdirs)
+
+st.write("You selected:", selected_model)
+
 start = st.button("Start")
 
 installation_name = "elegant_eagle"
