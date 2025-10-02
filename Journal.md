@@ -9,7 +9,11 @@
       * there is not much data to build the mean and
       * the mean may differ much from the true value.
 
-## Doings  
+## Doings
+
+### 02.10.25
+
+* structure and prettify the UI of the app to make it more useful and usable
 
 ### 01.10.25
 

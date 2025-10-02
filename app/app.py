@@ -20,35 +20,46 @@ from src.transformation import (
 st.set_page_config(page_title="Predict Power Output", layout="centered")
 
 st.title("Predict Power Output")
+
 earliest_date = date.today() - timedelta(days=365)
 latest_date = date.today() + timedelta(days=10)
-start_date = st.date_input(
-    "Select start date",
-    value=date.today(),
-    format="YYYY-MM-DD",
-    min_value=earliest_date,
-    max_value=latest_date,
-)
-end_date = st.date_input(
-    "Select end date",
-    value=date.today() + timedelta(days=1),
-    format="YYYY-MM-DD",
-    min_value=start_date,
-    max_value=latest_date,
-)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    start_date = st.date_input(
+        "Select start date",
+        value=date.today(),
+        format="YYYY-MM-DD",
+        min_value=earliest_date,
+        max_value=latest_date,
+    )
+
+with col2:
+    if "end_date" not in st.session_state:
+        st.session_state["end_date"] = date.today() + timedelta(days=7)
+
+    end_date = st.date_input(
+        "Select end date",
+        format="YYYY-MM-DD",
+        min_value=start_date,
+        max_value=latest_date,
+        key="end_date",
+    )
 
 
 subdirs = [
-    d for d in os.listdir(MODELS_DIR) if os.path.isdir(os.path.join(MODELS_DIR, d)) and not d.startswith(".") 
+    d
+    for d in os.listdir(MODELS_DIR)
+    if os.path.isdir(os.path.join(MODELS_DIR, d))
+    and not d.startswith(".")
     and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.model.pkl"))
     and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.pipeline.pkl"))
 ]
 
-selected_model = st.selectbox("Select Model", subdirs)
+selected_model = st.selectbox("Select model", subdirs)
 
-st.write("You selected:", selected_model)
-
-start = st.button("Start")
+start = st.button("Predict Power Output")
 
 installation_name = "elegant_eagle"
 
@@ -106,18 +117,33 @@ if start:
         tickangle=45,
     )
 
-    fig.update_yaxes(range=[0, None])
+    fig.update_yaxes(range=[0, None], rangemode="tozero")
 
-    fig.add_annotation(
-        x=1,
-        y=0,
-        xref="paper",
-        yref="paper",
-        xanchor="right",
-        yanchor="bottom",
-        text="Contains weather data by https://open-meteo.com/",
-        showarrow=False,
-        font=dict(size=8, color="gray"),
-    )
+    fig.update_layout(margin={"l": 40, "r": 60, "t": 40, "b": 40})
+
+    # fig.add_annotation(
+    #     x=1,
+    #     y=0,
+    #     xref="paper",
+    #     yref="paper",
+    #     xanchor="right",
+    #     yanchor="bottom",
+    #     text="Contains weather data by https://open-meteo.com/",
+    #     showarrow=False,
+    #     font=dict(size=8, color="gray"),
+    # )
 
     st.plotly_chart(fig)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        df_doy["datef"] = pd.to_datetime(df_doy["date"]).dt.date
+        st.dataframe(
+            df_doy[["datef", "predicted"]]
+            .rename(
+                columns={"datef": "Date", "predicted": "Predicted Power Output [Wph]"}
+            )
+            .set_index("Date")
+            .style.format("{:.3f}")
+        )
