@@ -14,6 +14,7 @@
 ### 02.10.25
 
 * structure and prettify the UI of the app to make it more useful and usable
+* load weather data into extra file, as preparation to train a weather prediction model to be able to make power production prediction over the whole next year
 
 ### 01.10.25
 
