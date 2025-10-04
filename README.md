@@ -26,6 +26,7 @@ To gather all power data of all installations:
       * if you want to use _OpenMeteo_ reforecasts: Enter longitude and latitude of the installation.
     * The timezone of the installation (e.g. utc+1).
 * run [data/scripts/transform_data.py](data/scripts/transform_data.py), creating [data/raw/power_data.csv](data/raw/power_data.csv)
+* if you want to use _OpenMeteo_ data: run [data/scripts/fetch_past_openmeteo_weather_data.py](data/scripts/fetch_past_openmeteo_weather_data.py).
 * run [add_[WDP]_weather_data_to_power_data.py](data/scripts/add_openmeteo_weather_data_to_power_data.py), creating [data\raw\power_[WDP]_weather_data.csv](data/raw/power_openmeteo_weather_data.csv). `[WDP]` is a weather data provider (either `dwd` or `openmeteo`).
 
 ## Usage
