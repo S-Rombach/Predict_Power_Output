@@ -11,6 +11,15 @@
 
 ## Doings
 
+### 05.10.25
+
+* introduce tabs in app
+* tab to compare trained models
+
+### 04.10.25
+
+* clean up script to fetch past weather data
+
 ### 02.10.25
 
 * structure and prettify the UI of the app to make it more useful and usable
