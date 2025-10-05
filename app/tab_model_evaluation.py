@@ -13,6 +13,10 @@ from src.config import MODELS_DIR
 def render():
     st.set_page_config(page_title="Model Evaluation", layout="centered")
     st.title("Model Evaluation")
+    st.write(
+        "These are the models in the `models/` directory and their evaluation metrics."
+        " Below you can select a model to highlight it in the comparison plot."
+    )
 
     # define which metrics to show ###############################################
     error_metrics = ["MAE", "MSE", "RMSE", "MAPE", "MedAE"]
