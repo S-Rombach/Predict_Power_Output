@@ -11,6 +11,10 @@
 
 ## Doings
 
+### 06.10.25
+
+* Reference streamlit app in Readme
+
 ### 05.10.25
 
 * introduce tabs in app

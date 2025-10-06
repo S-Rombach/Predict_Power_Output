@@ -1,5 +1,11 @@
 # Predict Power Output
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://predictpoweroutput-8zlrxkh7ppa7sqi5jezbc7.streamlit.app/)
+
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)]()
+
+
+
 ## Goal
 
 The goal of this project is to predict the power output of solar panels of specific installations.
@@ -8,6 +14,10 @@ The benefits over existing solutions are:
 
 * _accessible_ predictions: The manufacturer of the installation does provide predictions, but does not allow to export them. This project provides data ready to feed in other applications.
 * _customized_ per installation: The manufacturer provides predictions based on a model trained on data of multiple sites. This one is tailored to a specific location.
+
+## App
+
+This project is deployed as a streamlit [app](https://predictpoweroutput-8zlrxkh7ppa7sqi5jezbc7.streamlit.app/). You can predict the power output for the coming days or compare all trained models.
 
 ## Setup
 
