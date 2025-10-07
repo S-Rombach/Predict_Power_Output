@@ -184,3 +184,59 @@ class DayOfYearTransformer(BaseEstimator, TransformerMixin):
         if input_features is None:
             return np.array([f"doy_{self.trig_function}"])
         return np.array([f"{c}_doy_{self.trig_function}" for c in input_features])
+
+
+class LagFeatureTransformer(BaseEstimator, TransformerMixin):
+    """
+    Transformer that creates lagged features for time series data.
+    Parameters
+    ----------
+    lags : int or list of int
+        The lag(s) to apply to the input features. If an integer is provided, a single lag is used.
+        If a list of integers is provided, multiple lagged features are created for each lag value.
+    Attributes
+    ----------
+    feature_names_in_ : list of str
+        Names of the input features seen during fit.
+    Methods
+    -------
+    fit(X, y=None)
+        Fits the transformer to the data, storing feature names.
+    transform(X)
+        Transforms the input data by adding lagged features.
+    get_feature_names_out(input_features=None)
+        Returns the names of the output features after transformation.
+    Notes
+    -----
+    - For pandas DataFrame input, lagged columns are created with suffixes indicating the lag.
+    - For numpy array input, lagged features are stacked and returned as a new array.
+    - Useful for preparing time series data for supervised learning models.
+    """
+
+    def __init__(self, lags: Union[int, list[int]]):
+        self.lags = lags if isinstance(lags, list) else [lags]
+
+    def fit(
+        self, X: Union[pd.DataFrame, np.ndarray], y=None
+    ) -> "LagFeatureTransformer":
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = list(X.columns)
+        else:
+            self.feature_names_in_ = list([f"x{i}" for i in range(X.shape[1])])
+        return self
+
+    def transform(
+        self, X: Union[pd.DataFrame, np.ndarray]
+    ) -> Union[pd.DataFrame, np.ndarray]:
+        X_ = X.copy()
+
+        if isinstance(X_, pd.DataFrame):
+            return X_.add_suffix("_lag").shift(self.lags)
+        else:
+            return np.vstack([np.roll(X_, lag) for lag in self.lags]).T
+
+    def get_feature_names_out(self, input_features=None) -> np.ndarray:
+        if input_features is None:
+            input_features = self.feature_names_in_
+
+        return np.array([f"{c}_lag_{lag}" for lag in self.lags for c in input_features])
