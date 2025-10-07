@@ -11,6 +11,10 @@
 
 ## Doings
 
+### 07.10.25
+
+* First steps to "predict" the weather over the next year
+
 ### 06.10.25
 
 * Reference streamlit app in Readme
