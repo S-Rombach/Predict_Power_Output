@@ -18,12 +18,13 @@ from sklearn.metrics import (
     median_absolute_error,
     explained_variance_score,
 )
+from sklearn.preprocessing import MinMaxScaler
 
 
 def evaluate_regressor(
     regressor: BaseEstimator,
-    y_true: Union[pd.Series, np.ndarray],
-    y_pred: Union[pd.Series, np.ndarray],
+    y_true: Union[pd.Series, pd.DataFrame, np.ndarray],
+    y_pred: Union[pd.Series, pd.DataFrame, np.ndarray],
     timestamp: datetime,
     model_purpose: str,
     special_features: str,
@@ -71,19 +72,84 @@ def evaluate_regressor(
     - Model name encodes performance via scaled R² for easier comparison.
     """
 
-    regression_metrics = {
-        "MAE": mean_absolute_error,
-        "MSE": mean_squared_error,
-        "RMSE": lambda y_true, y_pred: np.sqrt(mean_squared_error(y_true, y_pred)),
-        "MAPE": mean_absolute_percentage_error,
-        "MedAE": median_absolute_error,
-        "R2": r2_score,
-        "ExplainedVar": explained_variance_score,
-    }
+    def __get_scores(
+        y_true: Union[pd.Series, pd.DataFrame, np.ndarray],
+        y_pred: Union[pd.Series, pd.DataFrame, np.ndarray],
+        metrics: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, float]:
+        """
+        Compute regression metrics between true and predicted values.
 
-    scores = {
-        metric: func(y_true, y_pred) for metric, func in regression_metrics.items()
-    }
+        Parameters
+        ----------
+        y_true : Union[pandas.Series, numpy.ndarray]
+            True target values.
+        y_pred : Union[pandas.Series, numpy.ndarray]
+            Predicted target values.
+        metrics : Optional[Dict[str, Any]], optional
+            Dictionary of metric names and corresponding functions to compute them.
+            If None, a default set of common regression metrics is used.
+
+        Returns
+        -------
+        Dict[str, float]
+            Dictionary with metric names as keys and computed metric values as values.
+
+        Notes
+        -----
+        - RMSE is computed as sqrt(MSE).
+        """
+        if metrics is None:
+            metrics = {
+                "MAE": mean_absolute_error,
+                "MSE": mean_squared_error,
+                "RMSE": lambda y_true, y_pred: np.sqrt(
+                    mean_squared_error(y_true, y_pred)
+                ),
+                "MAPE": mean_absolute_percentage_error,
+                "MedAE": median_absolute_error,
+                "R2": r2_score,
+                "ExplainedVar": explained_variance_score,
+            }
+
+        scores = {metric: func(y_true, y_pred) for metric, func in metrics.items()}
+
+        return scores
+
+    _y_true = (
+        y_true.values
+        if isinstance(y_true, pd.DataFrame) or isinstance(y_true, pd.Series)
+        else y_true
+    )
+    _y_pred = (
+        y_pred.values
+        if isinstance(y_pred, pd.DataFrame) or isinstance(y_pred, pd.Series)
+        else y_pred
+    )
+
+    all_feature_scores = {}
+    if _y_true.ndim > 1 and _y_true.shape[1] > 1:
+        columns = (
+            y_true.columns
+            if isinstance(y_true, pd.DataFrame)
+            else (
+                y_pred.columns
+                if isinstance(y_pred, pd.DataFrame)
+                else [f"x_{i}" for i in range(y_true.shape[1])]
+            )
+        )
+        for i, col in enumerate(columns):
+            feature_scores = __get_scores(
+                y_true=_y_true[:, i],
+                y_pred=_y_pred[:, i],
+            )
+            all_feature_scores[col] = feature_scores
+
+        scaler = MinMaxScaler()
+        scores = __get_scores(scaler.fit_transform(_y_true), scaler.transform(_y_pred))
+        scores = {f"{k}_scaled": v for k, v in scores.items()}
+    else:
+        scores = __get_scores(_y_true, _y_pred)
 
     timestamp_str = timestamp.strftime("%Y%m%d%H%M%S")
 
@@ -97,5 +163,8 @@ def evaluate_regressor(
         "special_features": special_features,
         **scores,
     }
+
+    if len(all_feature_scores) > 0:
+        results["single_dim_scores"] = all_feature_scores
 
     return results
