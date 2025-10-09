@@ -63,6 +63,9 @@ WC_CODES_FILENAME = "wc_4677_codes_simplified.csv"
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 """ Directory for machine learning models and related files. """
 
+WEATHER_MODELS_DIR = os.path.join(BASE_DIR, "models_weather")
+""" Directory for weather-related machine learning models. """
+
 STUDY_DIR = os.path.join(BASE_DIR, "studies")
 """ Directory for optuna studies and related files. """
 

@@ -215,11 +215,17 @@ data/raw/
 data/orig/*
 models/*.*
 models/*/*
+models_weather/*.*
+models_weather/*/*
+
 *.cache.*
 
 !models/compare_models.ipynb
 !models/*/*.json
 !models/*/*.txt
+
+# !models_weather/*/*.json
+# !models_weather/*/*.txt
 
 !data/orig/solstice_equinox_berlin.csv
 !data/orig/solstice,equinox.csv

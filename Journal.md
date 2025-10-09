@@ -8,8 +8,14 @@
     * Missing values are filled with means from the last years, even when
       * there is not much data to build the mean and
       * the mean may differ much from the true value.
+* Predicting the weather over the next year does not yield satisfying results, but is necessary to provide power output predictions. Maybe means or medians would be better.
 
 ## Doings
+
+### 09.10.25
+
+* Finish training of a model to forevcast weather over the next year. Results are in the lower bracket R2: 0.3 to 0.6. A comparison with simple means or medians would be interesting.
+* Training a weather model was not a waste though, because the LagFeatureTransformer is a useful byproduct. Also I learned something about MultioutputRegressors and how to deal with them.
 
 ### 07.10.25
 
