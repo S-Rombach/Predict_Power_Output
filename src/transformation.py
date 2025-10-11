@@ -61,7 +61,7 @@ def fetch_openmeteo_weather_data(
     retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
     openmeteo = openmeteo_requests.Client(session=retry_session)
 
-    start_date = pd.to_datetime(start_date)
+    start_date = pd.to_datetime(start_date).tz_con
     end_date = pd.to_datetime(end_date)
 
     # Make sure all required weather variables are listed here
@@ -223,7 +223,7 @@ def prepare_aggregate_openmeteo_data(
         Aggregated DataFrame with processed weather features, indexed by date.
     """
     df = df.copy()
-    df["date"] = pd.to_datetime(df["timestamp"]).dt.normalize().dt.tz_convert(None)
+    df["date"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.normalize()
 
     sum_cols = [
         c
