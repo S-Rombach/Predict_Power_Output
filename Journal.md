@@ -12,9 +12,13 @@
 
 ## Doings
 
+### 12.10.25
+
+* Train a baseline model for hourly prediction of solar power production.
+
 ### 09.10.25
 
-* Finish training of a model to forevcast weather over the next year. Results are in the lower bracket R2: 0.3 to 0.6. A comparison with simple means or medians would be interesting.
+* Finish training of a model to forecast weather over the next year. Results are in the lower bracket R2: 0.3 to 0.6. A comparison with simple means or medians would be interesting.
 * Training a weather model was not a waste though, because the LagFeatureTransformer is a useful byproduct. Also I learned something about MultioutputRegressors and how to deal with them.
 
 ### 07.10.25
