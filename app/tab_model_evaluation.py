@@ -7,7 +7,7 @@ import streamlit as st
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from src.config import MODELS_DIR
+from src.config import SOLAR_PROD_DAILY_MODELS_DIR as MODELS_DIR
 
 
 def render():

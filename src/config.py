@@ -60,8 +60,11 @@ POWER_OPENMETEO_WEATHER_FILENAME = "power_openmeteo_weather_data.csv"
 WC_CODES_FILENAME = "wc_4677_codes_simplified.csv"
 """ Name of the file with weather condition codes and their descriptions. """
 
-MODELS_DIR = os.path.join(BASE_DIR, "models")
-""" Directory for machine learning models and related files. """
+SOLAR_PROD_DAILY_MODELS_DIR = os.path.join(BASE_DIR, "models_solar_daily")
+""" Directory for daily solar production machine learning models and related files. """
+
+SOLAR_PROD_HOURLY_MODELS_DIR = os.path.join(BASE_DIR, "models_solar_hourly")
+""" Directory for hourly solar production machine learning models and related files. """
 
 WEATHER_MODELS_DIR = os.path.join(BASE_DIR, "models_weather")
 """ Directory for weather-related machine learning models. """

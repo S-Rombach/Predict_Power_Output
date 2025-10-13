@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 
 from sklearn.pipeline import Pipeline
-from src.config import DATA_ORIG_DIR, MODELS_DIR, WC_CODES_FILENAME
+from src.config import DATA_ORIG_DIR, SOLAR_PROD_DAILY_MODELS_DIR as MODELS_DIR, WC_CODES_FILENAME
 from src.transformation import (
     fetch_openmeteo_weather_data,
     prepare_aggregate_openmeteo_data,
