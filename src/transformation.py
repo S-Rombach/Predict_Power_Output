@@ -61,8 +61,16 @@ def fetch_openmeteo_weather_data(
     retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
     openmeteo = openmeteo_requests.Client(session=retry_session)
 
-    start_date = pd.to_datetime(start_date).tz_convert(None) if hasattr(start_date, "tzinfo") else pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date).tz_convert(None) if hasattr(end_date, "tzinfo") else pd.to_datetime(end_date)
+    start_date = (
+        pd.to_datetime(start_date).tz_convert(None)
+        if hasattr(start_date, "tzinfo")
+        else pd.to_datetime(start_date)
+    )
+    end_date = (
+        pd.to_datetime(end_date).tz_convert(None)
+        if hasattr(end_date, "tzinfo")
+        else pd.to_datetime(end_date)
+    )
 
     # Make sure all required weather variables are listed here
     # The order of variables in hourly or daily is important to assign them correctly below
@@ -127,9 +135,7 @@ def fetch_openmeteo_weather_data(
 
         hourly_data["weather_code"] = hourly_weather_code
         hourly_data["cloud_cover"] = np.nan_to_num(hourly_cloud_cover, nan=0.0)
-        hourly_data["snow_depth"] = np.nan_to_num(
-            hourly_snow_depth, nan=0.0
-        )
+        hourly_data["snow_depth"] = np.nan_to_num(hourly_snow_depth, nan=0.0)
         hourly_data["sunshine_duration"] = np.nan_to_num(
             hourly_sunshine_duration, nan=0.0
         )
@@ -175,9 +181,17 @@ def one_hot_encode_weather_descriptions(
     Returns:
         pd.DataFrame: DataFrame containing one-hot encoded weather description columns, with all mandatory columns included.
     """
+    # ensure names have the correct format
+    mandatory_weather_columns = [
+        col.strip().lower().replace(" ", "_") for col in mandatory_weather_columns
+    ]
 
     df = df.copy()
     ohe = pd.get_dummies(df[weather_column])
+
+    ohe = ohe.rename(
+        columns={col: col.strip().lower().replace(" ", "_") for col in ohe.columns}
+    )
 
     if len(mandatory_weather_columns) > 0:
         ohe = ohe[[col for col in ohe.columns if col in mandatory_weather_columns]]
@@ -185,10 +199,6 @@ def one_hot_encode_weather_descriptions(
     for col in mandatory_weather_columns:
         if col not in ohe.columns:
             ohe[col] = 0
-
-    ohe = ohe.rename(
-        columns={col: col.strip().lower().replace(" ", "_") for col in ohe.columns}
-    )
 
     return ohe
 
