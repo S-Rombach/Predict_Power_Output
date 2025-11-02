@@ -1,6 +1,6 @@
 """Custom data transformation functions used in different parts of the project."""
 
-from typing import List, Union
+from typing import List, Union, Literal
 import datetime
 from datetime import datetime as dt
 import numpy as np
@@ -205,6 +205,7 @@ def one_hot_encode_weather_descriptions(
 
 def prepare_aggregate_openmeteo_data(
     df: pd.DataFrame,
+    time_horizon: Literal["daily", "hourly"] = "daily",
     weather_column: str = "weather_description",
     mandatory_weather_columns: List[str] = [],
     exclude_columns: List[str] = [],
@@ -234,6 +235,7 @@ def prepare_aggregate_openmeteo_data(
     """
     df = df.copy()
     df["date"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.normalize()
+    df["hour"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.hour
 
     sum_cols = [
         c
@@ -256,24 +258,35 @@ def prepare_aggregate_openmeteo_data(
         | {c: "mean" for c in ohe.columns}
     )
 
-    df_doy = (
-        pd.concat(
-            [
-                df.drop(
-                    ["weather_description"]
-                    + [col for col in exclude_columns if col in df.columns],
-                    axis=1,
-                ),
-                ohe,
-            ],
-            axis=1,
-        )
-        .groupby(["installation", "date"])
-        .agg(agg_dict)
-        .reset_index()
+    df_doy = pd.concat(
+        [
+            df.drop(
+                ["weather_description"]
+                + [col for col in exclude_columns if col in df.columns],
+                axis=1,
+            ),
+            ohe,
+        ],
+        axis=1,
     )
 
-    df_doy = df_doy.sort_values(["date"])
+    if time_horizon == "daily":
+        df_doy = df_doy.drop(["hour"], axis=1)
+        df_doy = (
+            df_doy.groupby(["installation", "date"])
+            .agg(agg_dict)
+            .reset_index()
+            .sort_values(["date"])
+        )
+    elif time_horizon == "hourly":
+        df_doy = (
+            df_doy.groupby(["installation", "date", "hour"])
+            .agg(agg_dict)
+            .reset_index()
+            .sort_values(["date", "hour"])
+        )
+    else:
+        raise ValueError(f"Invalid time_horizon: '{time_horizon}'.")
 
     df_doy = df_doy.drop(["installation"], axis=1)
     return df_doy
