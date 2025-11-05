@@ -186,6 +186,73 @@ class DayOfYearTransformer(BaseEstimator, TransformerMixin):
         return np.array([f"{c}_doy_{self.trig_function}" for c in input_features])
 
 
+class TrigTransformer(BaseEstimator, TransformerMixin):
+    """
+    TrigTransformer applies a sinusoidal cyclic encoding to numeric input features.
+    Parameters
+    ----------
+    trig_function : str
+        Which trigonometric function to apply. Must be either "sin" or "cos".
+    period : float
+        The period of the cycle. Input values will be scaled by (2*pi/period) before
+        applying the trigonometric function.
+    Attributes
+    ----------
+    feature_names_in_ : list
+        Names of input features recorded during fit if X has columns. When X is an
+        array without column names, synthetic names "x0", "x1", ... are created.
+        Records input feature names (if available) and returns self.
+        Applies trig_function to X after scaling by 2*pi/period:
+            result = sin(X / period * 2*pi)  or  cos(X / period * 2*pi)
+        Returns an array-like object with the same shape as X when possible.
+        Returns output feature names. If input_features is provided, each name is
+        suffixed with "_doy_{trig_function}" (e.g. "feature_doy_sin"); if not,
+        returns a single name "doy_{trig_function}".
+    Notes
+    -----
+    - Intended to encode cyclical numeric features (for example, day-of-year,
+      hour-of-day, angle measures). It does not itself extract datetime components;
+      inputs should be numeric positions within the cycle.
+    - Accepts numpy arrays, pandas Series, or pandas DataFrame. Preservation of
+      index/columns depends on the input type and downstream usage.
+    - The transformer uses numpy ufuncs; returned type may be a numpy array or
+      a pandas object depending on the input and numpy/pandas behavior.
+    Raises
+    ------
+    ValueError
+        If trig_function is not "sin" or "cos", a ValueError is raised.
+    """
+
+    def __init__(self, trig_function, period):
+        self.trig_function = trig_function
+        self.period = period
+
+    def fit(self, X, y=None):
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = list(X.columns)
+        else:
+            self.feature_names_in_ = list([f"x{i}" for i in range(X.shape[1])])
+        return self
+
+    def transform(self, X):
+        X_ = X.copy()
+
+        if self.period <= 0:
+            raise ValueError("period must be a positive number")
+
+        if self.trig_function == "sin":
+            return np.sin(X_ / self.period * 2 * np.pi)
+        elif self.trig_function == "cos":
+            return np.cos(X_ / self.period * 2 * np.pi)
+        else:
+            raise ValueError("trig_function must be 'sin' or 'cos'")
+
+    def get_feature_names_out(self, input_features=None):
+        if input_features is None:
+            return np.array([f"{self.trig_function}"])
+        return np.array([f"{c}_{self.trig_function}" for c in input_features])
+
+
 class LagFeatureTransformer(BaseEstimator, TransformerMixin):
     """
     Transformer that creates lagged features for time series data.
