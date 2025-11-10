@@ -11,11 +11,19 @@ from datetime import date, timedelta
 
 
 from sklearn.pipeline import Pipeline
-from src.config import DATA_ORIG_DIR, SOLAR_PROD_DAILY_MODELS_DIR as MODELS_DIR, WC_CODES_FILENAME
+from src.config import (
+    DATA_ORIG_DIR,
+    SOLAR_PROD_DAILY_MODELS_DIR,
+    SOLAR_PROD_HOURLY_MODELS_DIR,
+    WC_CODES_FILENAME,
+)
 from src.transformation import (
     fetch_openmeteo_weather_data,
     prepare_aggregate_openmeteo_data,
 )
+
+TIME_RESOLUTION_DAILY = "Daily"
+TIME_RESOLUTION_HOURLY = "Hourly"
 
 
 def render():
@@ -23,8 +31,21 @@ def render():
 
     st.title("Predict Power Output")
 
-    earliest_date = date.today() - timedelta(days=365)
-    latest_date = date.today() + timedelta(days=10)
+    time_resolution_options = {
+        TIME_RESOLUTION_HOURLY: SOLAR_PROD_HOURLY_MODELS_DIR,
+        TIME_RESOLUTION_DAILY: SOLAR_PROD_DAILY_MODELS_DIR,
+    }
+
+    selected_time_resolution = st.selectbox(
+        "Select time resolution", list(time_resolution_options.keys())
+    )
+
+    earliest_date = date.today() - timedelta(
+        days=(365 if selected_time_resolution == TIME_RESOLUTION_DAILY else 3)
+    )
+    latest_date = date.today() + timedelta(
+        days=(10 if selected_time_resolution == TIME_RESOLUTION_DAILY else 3)
+    )
 
     col1, col2 = st.columns(2)
 
@@ -41,6 +62,10 @@ def render():
         if "end_date" not in st.session_state:
             st.session_state["end_date"] = date.today() + timedelta(days=7)
 
+        st.session_state["end_date"] = max(
+            min(st.session_state["end_date"], latest_date), start_date
+        )
+
         end_date = st.date_input(
             "Select end date",
             format="YYYY-MM-DD",
@@ -49,13 +74,15 @@ def render():
             key="end_date",
         )
 
+    selected_models_dir = time_resolution_options[selected_time_resolution]
+
     subdirs = [
         d
-        for d in os.listdir(MODELS_DIR)
-        if os.path.isdir(os.path.join(MODELS_DIR, d))
+        for d in os.listdir(selected_models_dir)
+        if os.path.isdir(os.path.join(selected_models_dir, d))
         and not d.startswith(".")
-        and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.model.pkl"))
-        and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.pipeline.pkl"))
+        and os.path.exists(os.path.join(selected_models_dir, d, f"{d}.model.pkl"))
+        and os.path.exists(os.path.join(selected_models_dir, d, f"{d}.pipeline.pkl"))
     ]
 
     selected_model = st.selectbox("Select model", subdirs)
@@ -69,7 +96,7 @@ def render():
         lon = float(st.secrets[installation_name]["longitude"])
 
         model_name = selected_model
-        filename = os.path.join(MODELS_DIR, model_name, model_name)
+        filename = os.path.join(selected_models_dir, model_name, model_name)
 
         with open(f"{filename}.model.pkl", "rb") as f:
             lreg = pickle.load(f)
@@ -94,6 +121,10 @@ def render():
 
         df_doy = prepare_aggregate_openmeteo_data(
             weather_data,
+            time_horizon={
+                TIME_RESOLUTION_HOURLY: "hourly",
+                TIME_RESOLUTION_DAILY: "daily",
+            }[selected_time_resolution],
             weather_column="weather_description",
             mandatory_weather_columns=[
                 "clear_sky",
@@ -105,19 +136,43 @@ def render():
         )
 
         df_doy["predicted"] = lp.predict(df_doy)
+        if selected_time_resolution == TIME_RESOLUTION_DAILY:
+            df_doy["time"] = pd.to_datetime(df_doy["date"])
+        else:
+            df_doy["time"] = pd.to_datetime(df_doy["date"]) + pd.to_timedelta(
+                df_doy["hour"], unit="h"
+            )
 
         fig = px.line(
             data_frame=df_doy,
-            x="date",
+            x="time",
             y="predicted",
             title="Predicted Power Output",
-            labels={"predicted": "peak power hours [W<sub>p</sub>h]", "date": "Date"},
+            labels={
+                "predicted": "peak power hours [W<sub>p</sub>h]",
+                "time": (
+                    "Date"
+                    if selected_time_resolution == TIME_RESOLUTION_DAILY
+                    else "Hour"
+                ),
+            },
         )
 
         fig.update_xaxes(
-            tickvals=df_doy["date"].unique(),
-            ticktext=[d.strftime("%Y-%m-%d") for d in df_doy["date"].unique()],
-            tickangle=45,
+            tickvals=df_doy["time"].unique(),
+            ticktext=[
+                (
+                    d.strftime("%Y-%m-%d")
+                    if selected_time_resolution == TIME_RESOLUTION_DAILY
+                    else (
+                        d.strftime("%H" + "<br>" + "%Y-%m-%d")
+                        if d.hour == 0
+                        else (d.strftime("%H") if d.hour % 3 == 0 else "")
+                    )
+                )
+                for d in df_doy["time"]
+            ],
+            tickangle=45 if selected_time_resolution == TIME_RESOLUTION_DAILY else 0,
         )
 
         fig.update_yaxes(range=[0, None], rangemode="tozero")
@@ -137,19 +192,19 @@ def render():
         # )
 
         st.plotly_chart(fig)
+        if selected_time_resolution == TIME_RESOLUTION_DAILY:
+            col1, col2 = st.columns(2)
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            df_doy["datef"] = pd.to_datetime(df_doy["date"]).dt.date
-            st.dataframe(
-                df_doy[["datef", "predicted"]]
-                .rename(
-                    columns={
-                        "datef": "Date",
-                        "predicted": "Predicted Power Output [Wph]",
-                    }
+            with col1:
+                df_doy["datef"] = pd.to_datetime(df_doy["date"]).dt.date
+                st.dataframe(
+                    df_doy[["datef", "predicted"]]
+                    .rename(
+                        columns={
+                            "datef": "Date",
+                            "predicted": "Predicted Power Output [Wph]",
+                        }
+                    )
+                    .set_index("Date")
+                    .style.format("{:.3f}")
                 )
-                .set_index("Date")
-                .style.format("{:.3f}")
-            )
