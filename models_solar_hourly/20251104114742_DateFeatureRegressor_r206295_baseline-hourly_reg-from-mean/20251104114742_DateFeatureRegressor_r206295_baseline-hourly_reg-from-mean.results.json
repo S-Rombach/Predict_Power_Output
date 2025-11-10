@@ -1,0 +1,14 @@
+{
+  "model_name": "20251104114742_DateFeatureRegressor_r206295_baseline-hourly_reg-from-mean",
+  "timestamp": "20251104114742",
+  "model_purpose": "baseline-hourly",
+  "model_class": "DateFeatureRegressor",
+  "special_features": "reg-from-mean",
+  "MAE": 0.06273288698970854,
+  "MSE": 0.01748332841050566,
+  "RMSE": 0.13222453785325045,
+  "MAPE": 85119328172.34198,
+  "MedAE": 0.0012142857142858,
+  "R2": 0.6295323112987787,
+  "ExplainedVar": 0.6295331883653673
+}
