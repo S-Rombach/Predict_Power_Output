@@ -26,7 +26,8 @@ def render():
     )
 
     # define which metrics to show ###############################################
-    error_metrics = ["MAE", "MSE", "RMSE", "MAPE", "MedAE"]
+    error_metrics = ["MAE", "MSE", "RMSE", "MedAE"]
+    high_exp_error_metrics = ["MAPE"]
     score_metrics = ["R2", "ExplainedVar"]
 
     target_keys = (
@@ -37,6 +38,7 @@ def render():
             "model_class",
         ]
         + error_metrics
+        + high_exp_error_metrics
         + score_metrics
     )
 
@@ -92,20 +94,14 @@ def render():
     # prepare comparison of models ###############################################
     df_show = df.copy()
     df_baseline = df_show[df_show["model_purpose"] == "baseline"]
-    # limit error metrics to avoid too large values in the plot
-    upper_y_limit_show = np.floor(
-        float(df_baseline[error_metrics].max().multiply(10).max())
-    )
 
     # aggregate metrics for min/max band and median line
-    df_agg = (
-        df[error_metrics + score_metrics]
-        .clip(upper=upper_y_limit_show)  # to avoid too large values in error metrics
-        .agg(["min", "max", "median"])
+    df_agg = df[error_metrics + high_exp_error_metrics + score_metrics].agg(
+        ["min", "max", "median"]
     )
 
-    df_show[error_metrics] = df_show[error_metrics].clip(upper=upper_y_limit_show)
-    df_show = df_show[df_show["model_purpose"] != "baseline"]
+    df_show[error_metrics] = df_show[error_metrics]
+    # df_show = df_show[~df_show["model_purpose"].str.startswith("baseline")]
 
     # Example selectors
     target_model_timestamp = st.selectbox(
@@ -116,13 +112,22 @@ def render():
 
     fig = make_subplots(
         rows=1,
-        cols=2,
-        subplot_titles=("Error Metrics", "Score Metrics"),
-        column_widths=[len(error_metrics), len(score_metrics)],
+        cols=3,
+        subplot_titles=("Error Metrics", "Error Metrics", "Score Metrics"),
+        column_widths=[
+            len(error_metrics),
+            len(high_exp_error_metrics),
+            len(score_metrics),
+        ],
+        horizontal_spacing=0.11,
     )
 
     # aggregate metrics: min/max band and median line ##############################
-    for col, metrics in ((1, error_metrics), (2, score_metrics)):
+    for col, metrics in (
+        (1, error_metrics),
+        (2, high_exp_error_metrics),
+        (3, score_metrics),
+    ):
         # min/max band
         mn = df_agg[metrics].loc["min"].values.astype(float)
         mx = df_agg[metrics].loc["max"].values.astype(float)
@@ -130,11 +135,11 @@ def render():
             go.Scatter(
                 x=metrics,
                 y=mn,
-                mode="lines",
+                mode="lines" if len(metrics) > 1 else "markers",
                 line={"width": 0},
-                showlegend=(col == 1),
-                name="range min to max",
+                showlegend=False,
                 hoverinfo="skip",
+                marker=dict(size=10, color="gray", symbol="triangle-up"),
             ),
             row=1,
             col=col,
@@ -143,12 +148,14 @@ def render():
             go.Scatter(
                 x=metrics,
                 y=mx,
-                mode="lines",
+                mode="lines" if len(metrics) > 1 else "lines+markers",
                 fill="tonexty",
                 fillcolor="rgba(128,128,128,0.25)",
                 line={"color": "rgba(128,128,128,0.6)", "width": 1},
-                showlegend=False,
+                name="range min to max",
+                showlegend=(col == 1),
                 hovertemplate="%{x}: %{y:.4g}<extra></extra>",
+                marker=dict(size=10, color="gray", symbol="triangle-down"),
             ),
             row=1,
             col=col,
@@ -159,11 +166,12 @@ def render():
             go.Scatter(
                 x=metrics,
                 y=med,
-                mode="lines",
+                mode="lines" if len(metrics) > 1 else "markers",
                 line={"color": "gray", "dash": "dash"},
                 name="median",
                 showlegend=(col == 1),
                 hovertemplate="%{x}: %{y:.4g}<extra></extra>",
+                marker=dict(size=10, color="gray", symbol="line-ew-open"),
             ),
             row=1,
             col=col,
@@ -174,7 +182,11 @@ def render():
         for i, (_, row) in enumerate(df_baseline.iterrows()):
             label = f"baseline: {row.get('name', str(i))}"
             showleg = True
-            for col, metrics in ((1, error_metrics), (2, score_metrics)):
+            for col, metrics in (
+                (1, error_metrics),
+                (2, high_exp_error_metrics),
+                (3, score_metrics),
+            ):
                 fig.add_trace(
                     go.Scatter(
                         x=metrics,
@@ -198,7 +210,11 @@ def render():
         raise ValueError(f"timestamp '{target_model_timestamp}' not found in df.index")
     tgt = df_show.loc[target_model_timestamp]
 
-    for col, metrics in ((1, error_metrics), (2, score_metrics)):
+    for col, metrics in (
+        (1, error_metrics),
+        (2, high_exp_error_metrics),
+        (3, score_metrics),
+    ):
         fig.add_trace(
             go.Scatter(
                 x=metrics,
@@ -216,18 +232,32 @@ def render():
 
     # axes, layout ##############################################################
     fig.update_xaxes(tickangle=0, row=1, col=1)
-    y_err_max = min(5, df_show.loc[:, error_metrics].max().max())
     fig.update_yaxes(
-        range=[0, float(y_err_max)],
         row=1,
         col=1,
-        title_text="MSE: W_ph², else W_ph",
+        title_text="MSE: (W<sub>p</sub>h)<sup>2</sup>, MAPE: None, else W<sub>p</sub>h",
     )
+
+    fig.update_xaxes(tickangle=0, row=1, col=2)
+    fig.update_yaxes(
+        row=1,
+        col=2,
+        type="log",
+        title_text="MSE: (W<sub>p</sub>h)<sup>2</sup>, MAPE: None, else W<sub>p</sub>h",
+    )
+
+    fig.update_xaxes(tickangle=0, row=1, col=3)
+    fig.update_yaxes(
+        range=[0, 1],
+        row=1,
+        col=3,
+        title_text="Score",
+        automargin=True,
+    )
+
     fig.for_each_trace(
         lambda t: t.update(line={"dash": "dash"} if t.name == "median" else {})
     )
-    fig.update_xaxes(tickangle=0, row=1, col=2)
-    fig.update_yaxes(range=[0, 1], row=1, col=2, title_text="Score")
 
     fig.update_layout(
         title="Comparison of models",
@@ -238,6 +268,7 @@ def render():
             "xanchor": "center",
             "yanchor": "top",
         },
+        autosize=True,
         margin={"l": 40, "r": 60, "t": 50, "b": 80},
         hovermode="x unified",
         template="plotly_white",
