@@ -7,7 +7,14 @@ import streamlit as st
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from src.config import SOLAR_PROD_DAILY_MODELS_DIR as MODELS_DIR
+from src.config import SOLAR_PROD_DAILY_MODELS_DIR, SOLAR_PROD_HOURLY_MODELS_DIR
+
+TIME_RESOLUTION_DAILY = "Daily"
+TIME_RESOLUTION_HOURLY = "Hourly"
+time_resolution_options = {
+    TIME_RESOLUTION_HOURLY: SOLAR_PROD_HOURLY_MODELS_DIR,
+    TIME_RESOLUTION_DAILY: SOLAR_PROD_DAILY_MODELS_DIR,
+}
 
 
 def render():
@@ -33,19 +40,26 @@ def render():
         + score_metrics
     )
 
+    selected_time_resolution = st.selectbox(
+        "Select time resolution",
+        list(time_resolution_options.keys()),
+        key="eval_time_res",
+    )
+    selected_models_dir = time_resolution_options[selected_time_resolution]
+
     # find model subdirs with results ###########################################
     subdirs = [
         d
-        for d in os.listdir(MODELS_DIR)
-        if os.path.isdir(os.path.join(MODELS_DIR, d))
+        for d in os.listdir(selected_models_dir)
+        if os.path.isdir(os.path.join(selected_models_dir, d))
         and not d.startswith(".")
-        and os.path.exists(os.path.join(MODELS_DIR, d, f"{d}.results.json"))
+        and os.path.exists(os.path.join(selected_models_dir, d, f"{d}.results.json"))
     ]
 
     rows = []
 
     for d in subdirs:
-        result_path = os.path.join(MODELS_DIR, d, f"{d}.results.json")
+        result_path = os.path.join(selected_models_dir, d, f"{d}.results.json")
         row = {}
         if os.path.exists(result_path):
             with open(result_path, "r") as f:
