@@ -41,7 +41,7 @@ To gather all power data of all installations:
 
 ## Usage
 
-Notebooks to train models are located in [model_training](model_training). Run all cells of the notebook to train a model. The configuration and results will be saved in a directory in [models](models). The binaries are not saved, because the source code of custom models is not packaged.
+Notebooks to train models are located in [model_training](model_training). Run all cells of the notebook to train a model. The configuration and results will be saved in a directory in [models_solar_[freq]](models_solar_daily), where `[freq]` is `daily` or `hourly`.
 
 ## Conventions
 
