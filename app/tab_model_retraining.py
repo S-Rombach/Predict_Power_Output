@@ -1,13 +1,10 @@
 import os
 import json
 import pandas as pd
-import numpy as np
 
 import streamlit as st
 
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
-from src.config import SOLAR_PROD_DAILY_MODELS_DIR, SOLAR_PROD_HOURLY_MODELS_DIR, 
+from src.config import SOLAR_PROD_DAILY_MODELS_DIR, SOLAR_PROD_HOURLY_MODELS_DIR
 
 TIME_RESOLUTION_DAILY = "Daily"
 TIME_RESOLUTION_HOURLY = "Hourly"
@@ -93,7 +90,7 @@ def render():
 
     # prepare comparison of models ###############################################
     df_show = df.copy()
-    df_baseline = df_show[df_show["model_purpose"] == "baseline"]
+    df_baseline = df_show[df_show["model_purpose"].str.startswith("baseline")]
 
     # aggregate metrics for min/max band and median line
     df_agg = df[error_metrics + high_exp_error_metrics + score_metrics].agg(
