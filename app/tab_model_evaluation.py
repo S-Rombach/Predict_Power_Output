@@ -93,7 +93,7 @@ def render():
 
     # prepare comparison of models ###############################################
     df_show = df.copy()
-    df_baseline = df_show[df_show["model_purpose"] == "baseline"]
+    df_baseline = df_show[df_show["model_purpose"].str.startswith("baseline")]
 
     # aggregate metrics for min/max band and median line
     df_agg = df[error_metrics + high_exp_error_metrics + score_metrics].agg(
