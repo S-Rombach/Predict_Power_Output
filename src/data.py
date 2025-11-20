@@ -195,3 +195,73 @@ def gather_and_transform_data(
     # After processing all files in the directory, save the combined data
     if not all_power_data.empty:
         all_power_data.to_csv(raw_data_pathfilename, index=False, sep=";")
+
+
+def merge_weather_with_power_data(
+    power_data_df: pd.DataFrame, weather_data_df: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Merge power and weather DataFrames by installation and timestamp.
+    Parameters
+    ----------
+    power_data_df : pd.DataFrame
+        Power measurements containing at least 'timestamp' and 'installation' columns.
+    weather_data_df : pd.DataFrame
+        Weather observations containing 'timestamp', 'installation' and 'sunshine_duration'.
+    Returns
+    -------
+    pd.DataFrame
+        The power_data_df enriched with matching weather columns. Weather is resampled
+        to 15-minute intervals with forward-fill and sunshine_duration is scaled accordingly.
+    Raises
+    ------
+    ValueError
+        If an installation in power_data_df is missing in weather_data_df or if weather
+        data does not cover the full time range of the power data for any installation.
+    """    
+    for inst in power_data_df["installation"].unique():
+        if inst not in weather_data_df["installation"].unique():
+            raise ValueError(
+                f"Installation '{inst}' not found in weather data."
+                " Fetch weather data first."
+                " Ensure fetched weather data covers the whole time range of the power data."
+            )
+
+        weather_data = weather_data_df[weather_data_df["installation"] == inst].copy()
+
+        if weather_data is None or weather_data.empty:
+            print(f"No weather data found for installation '{inst}'.")
+            continue
+
+        if (
+            weather_data["timestamp"].min()
+            > power_data_df[power_data_df["installation"] == inst]["timestamp"].min()
+        ):
+            raise ValueError(
+                f"Weather data for installation '{inst}' does not cover the entire time range of the power data."
+                f" Earliest weather data timestamp is {weather_data['timestamp'].min().strftime('%Y-%m-%d %H:%M:%S')},"
+                f" but earliest power data timestamp is"
+                f" {power_data_df[power_data_df['installation'] == inst]['timestamp'].min().strftime('%Y-%m-%d %H:%M:%S')}."
+            )
+        if (
+            weather_data["timestamp"].max()
+            < power_data_df[power_data_df["installation"] == inst]["timestamp"].max()
+        ):
+            raise ValueError(
+                f"Weather data for installation '{inst}' does not cover the entire time range of the power data."
+                f" Latest weather data timestamp is {weather_data['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')},"
+                f" but latest power data timestamp is"
+                f" {power_data_df[power_data_df['installation'] == inst]['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S')}."
+            )
+
+        # -- Merge the weather data with the power data --------------------------------------------------------
+        weather_data = (
+            weather_data.set_index("timestamp").resample("15min").ffill().reset_index()
+        )
+        weather_data["sunshine_duration"] = weather_data["sunshine_duration"].div(4)
+
+        power_data_df = pd.merge(
+            power_data_df, weather_data, how="left", on=["timestamp", "installation"]
+        )
+
+    return power_data_df
