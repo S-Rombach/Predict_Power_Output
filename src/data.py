@@ -2,13 +2,6 @@ import os
 import pandas as pd
 import datetime
 
-from src.config import (
-    DATA_RAW_DIR,
-    DATA_ORIG_DIR,
-    DATA_RAW_FILENAME,
-    INSTALLATION_DATA_FILENAME,
-)
-
 
 def ensure_utc_series(s: pd.Series, target_timezone) -> pd.Series:
     """
@@ -55,32 +48,28 @@ def ensure_utc_series(s: pd.Series, target_timezone) -> pd.Series:
 
 
 def gather_and_transform_data(
-    raw_data_pathfilename: str = os.path.join(DATA_RAW_DIR, DATA_RAW_FILENAME),
-    data_orig_dir_name: str = DATA_ORIG_DIR,
-    installation_metadata_pathfilename: str = os.path.join(
-        DATA_ORIG_DIR, INSTALLATION_DATA_FILENAME
-    ),
-):
+    installation_metadata: pd.DataFrame,
+    orig_data_dir_name: str,
+) -> pd.DataFrame:
     """
     Gather and transform raw installation CSV files into a single, normalized dataset and save it.
 
-    This function walks through subdirectories of `data_orig_dir_name`.
+    This function walks through subdirectories of `orig_data_dir_name`.
     All per-file rows are concatenated into a single DataFrame and written (semicolon-separated)
     to `raw_data_pathfilename`. The raw data directory is created if it does not exist.
 
     Parameters
     ----
-        data_orig_dir_name : str
+        orig_data_dir_name : str
             Directory containing one subdirectory per installation with raw CSVs.
-        raw_data_pathfilename : str
-            Path (including filename) where the combined transformed CSV will be saved.
-        installation_metadata_pathfilename : str
-            Path to installation metadata CSV (semicolon-separated) indexed by "installation" and
+        installation_metadata : pd.DataFrame
+            DataFrame containing installation metadata indexed by "installation" and
             expected to contain at least the columns "Wp" (peak power) and "timezone".
 
     Returns
     -------
-        None
+    pd.DataFrame
+        The combined and transformed power data from all installations.
     """
 
     column_translations = {
@@ -126,22 +115,13 @@ def gather_and_transform_data(
     ]
     """The columns that are used for power measurements."""
 
-    # Ensure the raw data directory exists
-    os.makedirs(os.path.dirname(raw_data_pathfilename), exist_ok=True)
-
     all_power_data = pd.DataFrame(
         columns=column_translations.values(),
         dtype=str,
     )
 
-    installation_metadata = pd.read_csv(
-        installation_metadata_pathfilename,
-        sep=";",
-        index_col="installation",
-    )
-
-    for dir in os.listdir(data_orig_dir_name):
-        if not os.path.isdir(os.path.join(data_orig_dir_name, dir)):
+    for dir in os.listdir(orig_data_dir_name):
+        if not os.path.isdir(os.path.join(orig_data_dir_name, dir)):
             continue
 
         peak_power = float(installation_metadata.loc[dir, "Wp"])
@@ -154,12 +134,12 @@ def gather_and_transform_data(
             dtype=str,
         )
 
-        for file in os.listdir(os.path.join(data_orig_dir_name, dir)):
+        for file in os.listdir(os.path.join(orig_data_dir_name, dir)):
             if not file.endswith(".csv"):
                 continue
 
             # Construct the full path to the original data file
-            orig_file_path = os.path.join(data_orig_dir_name, dir, file)
+            orig_file_path = os.path.join(orig_data_dir_name, dir, file)
 
             # Read the original data file
             df = pd.read_csv(orig_file_path, sep=";", dtype=str)
@@ -192,9 +172,7 @@ def gather_and_transform_data(
             [all_power_data, installation_data], ignore_index=True, axis=0
         )
 
-    # After processing all files in the directory, save the combined data
-    if not all_power_data.empty:
-        all_power_data.to_csv(raw_data_pathfilename, index=False, sep=";")
+    return all_power_data
 
 
 def merge_weather_with_power_data(
@@ -218,7 +196,7 @@ def merge_weather_with_power_data(
     ValueError
         If an installation in power_data_df is missing in weather_data_df or if weather
         data does not cover the full time range of the power data for any installation.
-    """    
+    """
     for inst in power_data_df["installation"].unique():
         if inst not in weather_data_df["installation"].unique():
             raise ValueError(
