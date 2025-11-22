@@ -1,10 +1,21 @@
 import os
 import json
+import pickle
 import pandas as pd
 
+from sklearn.pipeline import Pipeline
 import streamlit as st
 
-from src.config import SOLAR_PROD_DAILY_MODELS_DIR, SOLAR_PROD_HOURLY_MODELS_DIR
+from src.config import (
+    DATA_ORIG_DIR,
+    SOLAR_PROD_DAILY_MODELS_DIR,
+    SOLAR_PROD_HOURLY_MODELS_DIR,
+    WC_CODES_FILENAME,
+)
+from src.data import gather_and_transform_data, merge_weather_with_power_data
+from src.transformation import fetch_openmeteo_weather_data
+
+from datetime import date, timedelta
 
 TIME_RESOLUTION_DAILY = "Daily"
 TIME_RESOLUTION_HOURLY = "Hourly"
@@ -12,6 +23,85 @@ time_resolution_options = {
     TIME_RESOLUTION_HOURLY: SOLAR_PROD_HOURLY_MODELS_DIR,
     TIME_RESOLUTION_DAILY: SOLAR_PROD_DAILY_MODELS_DIR,
 }
+
+
+def retrain_model(data_path: str, selected_models_dir: str, model_name: str) -> None:
+
+    installation_name = "Unknown"
+    meta_data_dict = {
+        "timezone": st.secrets["timezone"],
+        "Wp": st.secrets["Wp"],
+        "installation": installation_name,
+        "latitude": st.secrets["latitude"],
+        "longitude": st.secrets["longitude"],
+    }
+    installation_metadata = (
+        pd.Series(
+            meta_data_dict,
+            name=meta_data_dict["installation"],
+        )
+        .to_frame()
+        .T
+    )
+
+    # transform solar data
+    all_power_data = gather_and_transform_data(
+        installation_metadata=installation_metadata, orig_data_dir_name=data_path
+    )
+
+    # fetch weather data
+    latitude = float(meta_data_dict["latitude"])
+    longitude = float(meta_data_dict["longitude"])
+    start_date = date(2012, 1, 1)
+    end_date = date.today() + timedelta(days=-1)
+
+    wc_codes = pd.read_csv(
+        os.path.join(DATA_ORIG_DIR, WC_CODES_FILENAME), sep=";", index_col="code_figure"
+    ).to_dict()["code_name"]
+
+    weather_data, meta_data = fetch_openmeteo_weather_data(
+        latitude, longitude, start_date, end_date, wc_codes=wc_codes
+    )
+    weather_data = weather_data.reset_index(drop=True)
+    weather_data = weather_data.rename(columns={"date": "timestamp"})
+    weather_data["installation"] = installation_name
+    weather_data = weather_data[
+        ["installation"]
+        + [col for col in weather_data.columns if col != "installation"]
+    ]
+
+    # merge weather data with power data
+    merged_data = merge_weather_with_power_data(
+        power_data_df=all_power_data, weather_data_df=weather_data
+    )
+
+    from sklearn.model_selection import train_test_split
+
+    Xy_train, Xy_test = train_test_split(
+        merged_data, test_size=0.2, random_state=387
+    )
+    X_train = Xy_train.drop(columns=["power_output"])
+    y_train = Xy_train["power_output"]
+    X_test = Xy_test.drop(columns=["power_output"])
+    y_test = Xy_test["power_output"]
+
+    # load model
+    model_name = os.path.basename(os.path.normpath(selected_models_dir))
+    path_filename_prefix = os.path.join(selected_models_dir, model_name)
+
+    with open(f"{path_filename_prefix}.model.pkl", "rb") as f:
+        estimator = pickle.load(f)
+
+    with open(f"{path_filename_prefix}.pipeline.pkl", "rb") as f:
+        preprocessor = pickle.load(f)
+
+
+    
+    # retrain model
+    pipe = Pipeline(steps=[("preprocessor", preprocessor), ("estimator", estimator)])
+    pipe.fit(X_train, y_train)
+
+    # save updated model
 
 
 def render():
@@ -118,7 +208,18 @@ def render():
     if len(uploaded_files) == 0:
         st.info("Please upload at least one CSV file with new training data.")
         return
-    
+
+    # make the retrain data directory session specific, so multiple users don't conflict
+    # this is obviously not suitable for production use
+    retrain_data_path = os.path.join(
+        DATA_ORIG_DIR, f"retrain_data_{date.today().isoformat()}"
+    )
+
+    os.makedirs(retrain_data_path, exist_ok=True)
+
     for uploaded_file in uploaded_files:
-        with open(uploaded_file.name, "wb") as f:
-            None
+        with open(os.path.join(retrain_data_path, uploaded_file.name), "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+    if st.button("Retrain Model"):
+        retrain_model(retrain_data_path, selected_models_dir, target_model_timestamp)
