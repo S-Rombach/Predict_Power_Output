@@ -1,13 +1,140 @@
 """Custom data transformation functions used in different parts of the project."""
 
-from typing import List, Union, Literal
+from typing import Any, List, Union, Literal
 import datetime
-from datetime import datetime as dt
+from datetime import date, datetime as dt
 import numpy as np
 import pandas as pd
 import requests_cache
 from retry_requests import retry
 import openmeteo_requests
+
+
+def one_hot_encode_weather_descriptions(
+    df: pd.DataFrame,
+    weather_column: str = "weather_description",
+    mandatory_weather_columns: List[str] = [],
+) -> pd.DataFrame:
+    """
+    One-hot encodes the specified weather description column in the given DataFrame.
+    Converts the values in the `weather_column` to lowercase, strips whitespace, and replaces spaces with underscores.
+    Ensures that the resulting DataFrame contains columns for all specified `mandatory_weather_columns`, adding missing columns with zeros.
+    Args:
+        df (pd.DataFrame): Input DataFrame containing weather data.
+        weather_column (str, optional): Name of the column containing weather descriptions to encode. Defaults to "weather_description".
+        mandatory_weather_columns (List[str], optional): List of weather description columns that must be present in the output. Missing columns are added with zeros. Defaults to [].
+    Returns:
+        pd.DataFrame: DataFrame containing one-hot encoded weather description columns, with all mandatory columns included.
+    """
+    # ensure names have the correct format
+    mandatory_weather_columns = [
+        col.strip().lower().replace(" ", "_") for col in mandatory_weather_columns
+    ]
+
+    df = df.copy()
+    ohe = pd.get_dummies(df[weather_column])
+
+    ohe = ohe.rename(
+        columns={col: col.strip().lower().replace(" ", "_") for col in ohe.columns}
+    )
+
+    if len(mandatory_weather_columns) > 0:
+        ohe = ohe[[col for col in ohe.columns if col in mandatory_weather_columns]]
+
+    for col in mandatory_weather_columns:
+        if col not in ohe.columns:
+            ohe[col] = 0
+
+    return ohe
+
+
+def prepare_aggregate_openmeteo_data(
+    df: pd.DataFrame,
+    time_horizon: Literal["daily", "hourly"] = "daily",
+    weather_column: str = "weather_description",
+    mandatory_weather_columns: List[str] = [],
+    exclude_columns: List[str] = [],
+) -> pd.DataFrame:
+    """
+    Prepares and aggregates OpenMeteo weather data for further analysis.
+    This function processes a DataFrame containing weather data by:
+    - Normalizing and converting the 'timestamp' column to a date column.
+    - Summing or averaging selected weather-related columns, excluding specified columns.
+    - One-hot encoding weather descriptions, ensuring mandatory weather columns are present.
+    - Aggregating data by 'installation' and 'date' using appropriate aggregation methods.
+    - Sorting the resulting DataFrame by date and removing the 'installation' column.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame containing weather data, including a 'timestamp' column.
+    weather_column : str, optional
+        Name of the column containing weather descriptions to be one-hot encoded (default is "weather_description").
+    mandatory_weather_columns : List[str], optional
+        List of weather description columns that must be present in the output (default is empty list).
+    exclude_columns : List[str], optional
+        List of columns to exclude from aggregation (default is empty list).
+    Returns
+    -------
+    pd.DataFrame
+        Aggregated DataFrame with processed weather features, indexed by date.
+    """
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.normalize()
+    df["hour"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.hour
+
+    sum_cols = [
+        c
+        for c in ["sol_prod", "sunshine_duration", "direct_radiation"]
+        if c in df.columns and c not in exclude_columns
+    ]
+    mean_cols = [
+        c
+        for c in ["cloud_cover", "snow_depth", "is_day"]
+        if c in df.columns and c not in exclude_columns
+    ]
+
+    ohe = one_hot_encode_weather_descriptions(
+        df, weather_column, mandatory_weather_columns
+    )
+
+    agg_dict = (
+        {c: "sum" for c in sum_cols}
+        | {c: "mean" for c in mean_cols}
+        | {c: "mean" for c in ohe.columns}
+    )
+
+    df_doy = pd.concat(
+        [
+            df.drop(
+                ["weather_description"]
+                + [col for col in exclude_columns if col in df.columns],
+                axis=1,
+            ),
+            ohe,
+        ],
+        axis=1,
+    )
+
+    if time_horizon == "daily":
+        df_doy = df_doy.drop(["hour"], axis=1)
+        df_doy = (
+            df_doy.groupby(["installation", "date"])
+            .agg(agg_dict)
+            .reset_index()
+            .sort_values(["date"])
+        )
+    elif time_horizon == "hourly":
+        df_doy = (
+            df_doy.groupby(["installation", "date", "hour"])
+            .agg(agg_dict)
+            .reset_index()
+            .sort_values(["date", "hour"])
+        )
+    else:
+        raise ValueError(f"Invalid time_horizon: '{time_horizon}'.")
+
+    df_doy = df_doy.drop(["installation"], axis=1)
+    return df_doy
 
 
 def fetch_openmeteo_weather_data(
@@ -165,128 +292,48 @@ def fetch_openmeteo_weather_data(
     }
 
 
-def one_hot_encode_weather_descriptions(
-    df: pd.DataFrame,
-    weather_column: str = "weather_description",
-    mandatory_weather_columns: List[str] = [],
+def fetch_weather_data_for_installations(
+    installation_metadata: dict[str, dict[str, Any]],
+    wc_codes: dict[int, str],
+    start_date: date,
+    end_date: date,
 ) -> pd.DataFrame:
     """
-    One-hot encodes the specified weather description column in the given DataFrame.
-    Converts the values in the `weather_column` to lowercase, strips whitespace, and replaces spaces with underscores.
-    Ensures that the resulting DataFrame contains columns for all specified `mandatory_weather_columns`, adding missing columns with zeros.
+    Fetch weather data for multiple installations and combine into a single DataFrame.
     Args:
-        df (pd.DataFrame): Input DataFrame containing weather data.
-        weather_column (str, optional): Name of the column containing weather descriptions to encode. Defaults to "weather_description".
-        mandatory_weather_columns (List[str], optional): List of weather description columns that must be present in the output. Missing columns are added with zeros. Defaults to [].
+        installation_metadata (dict[str, dict[str, Any]]): Mapping of installation name to metadata containing at least
+            "latitude" and "longitude".
+        wc_codes (dict[int, str]): Weather code mappings passed to the weather API helper.
+        start_date (date): Start date (inclusive) for fetched data.
+        end_date (date): End date (inclusive) for fetched data.
     Returns:
-        pd.DataFrame: DataFrame containing one-hot encoded weather description columns, with all mandatory columns included.
+        pd.DataFrame: Combined weather data for all installations with a "installation" column and "timestamp"
+        (originally "date") and any weather variables returned by the API.
     """
-    # ensure names have the correct format
-    mandatory_weather_columns = [
-        col.strip().lower().replace(" ", "_") for col in mandatory_weather_columns
-    ]
 
-    df = df.copy()
-    ohe = pd.get_dummies(df[weather_column])
+    all_weather_data = pd.DataFrame()
 
-    ohe = ohe.rename(
-        columns={col: col.strip().lower().replace(" ", "_") for col in ohe.columns}
-    )
+    for installation_name, installation_data in installation_metadata.items():
+        print(f"Processing installation: {installation_name}")
 
-    if len(mandatory_weather_columns) > 0:
-        ohe = ohe[[col for col in ohe.columns if col in mandatory_weather_columns]]
+        latitude = float(installation_data["latitude"])
+        longitude = float(installation_data["longitude"])
 
-    for col in mandatory_weather_columns:
-        if col not in ohe.columns:
-            ohe[col] = 0
-
-    return ohe
-
-
-def prepare_aggregate_openmeteo_data(
-    df: pd.DataFrame,
-    time_horizon: Literal["daily", "hourly"] = "daily",
-    weather_column: str = "weather_description",
-    mandatory_weather_columns: List[str] = [],
-    exclude_columns: List[str] = [],
-) -> pd.DataFrame:
-    """
-    Prepares and aggregates OpenMeteo weather data for further analysis.
-    This function processes a DataFrame containing weather data by:
-    - Normalizing and converting the 'timestamp' column to a date column.
-    - Summing or averaging selected weather-related columns, excluding specified columns.
-    - One-hot encoding weather descriptions, ensuring mandatory weather columns are present.
-    - Aggregating data by 'installation' and 'date' using appropriate aggregation methods.
-    - Sorting the resulting DataFrame by date and removing the 'installation' column.
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input DataFrame containing weather data, including a 'timestamp' column.
-    weather_column : str, optional
-        Name of the column containing weather descriptions to be one-hot encoded (default is "weather_description").
-    mandatory_weather_columns : List[str], optional
-        List of weather description columns that must be present in the output (default is empty list).
-    exclude_columns : List[str], optional
-        List of columns to exclude from aggregation (default is empty list).
-    Returns
-    -------
-    pd.DataFrame
-        Aggregated DataFrame with processed weather features, indexed by date.
-    """
-    df = df.copy()
-    df["date"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.normalize()
-    df["hour"] = pd.to_datetime(df["timestamp"]).dt.tz_convert(None).dt.hour
-
-    sum_cols = [
-        c
-        for c in ["sol_prod", "sunshine_duration", "direct_radiation"]
-        if c in df.columns and c not in exclude_columns
-    ]
-    mean_cols = [
-        c
-        for c in ["cloud_cover", "snow_depth", "is_day"]
-        if c in df.columns and c not in exclude_columns
-    ]
-
-    ohe = one_hot_encode_weather_descriptions(
-        df, weather_column, mandatory_weather_columns
-    )
-
-    agg_dict = (
-        {c: "sum" for c in sum_cols}
-        | {c: "mean" for c in mean_cols}
-        | {c: "mean" for c in ohe.columns}
-    )
-
-    df_doy = pd.concat(
-        [
-            df.drop(
-                ["weather_description"]
-                + [col for col in exclude_columns if col in df.columns],
-                axis=1,
-            ),
-            ohe,
-        ],
-        axis=1,
-    )
-
-    if time_horizon == "daily":
-        df_doy = df_doy.drop(["hour"], axis=1)
-        df_doy = (
-            df_doy.groupby(["installation", "date"])
-            .agg(agg_dict)
-            .reset_index()
-            .sort_values(["date"])
+        weather_data, meta_data = fetch_openmeteo_weather_data(
+            latitude, longitude, start_date, end_date, wc_codes=wc_codes
         )
-    elif time_horizon == "hourly":
-        df_doy = (
-            df_doy.groupby(["installation", "date", "hour"])
-            .agg(agg_dict)
-            .reset_index()
-            .sort_values(["date", "hour"])
-        )
-    else:
-        raise ValueError(f"Invalid time_horizon: '{time_horizon}'.")
+        weather_data = weather_data.reset_index(drop=True)
+        weather_data = weather_data.rename(columns={"date": "timestamp"})
+        weather_data["installation"] = installation_name
+        weather_data = weather_data[
+            ["installation"]
+            + [col for col in weather_data.columns if col != "installation"]
+        ]
 
-    df_doy = df_doy.drop(["installation"], axis=1)
-    return df_doy
+        all_weather_data = (
+            pd.concat([all_weather_data, weather_data], ignore_index=True)
+            if not all_weather_data.empty
+            else weather_data
+        )
+
+    return all_weather_data
