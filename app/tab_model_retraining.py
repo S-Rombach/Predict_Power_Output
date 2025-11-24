@@ -2,9 +2,11 @@ import os
 import json
 import pickle
 import pandas as pd
+from typing import Any
 
-from sklearn.pipeline import Pipeline
 import streamlit as st
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
 
 from src.config import (
     DATA_ORIG_DIR,
@@ -12,8 +14,11 @@ from src.config import (
     SOLAR_PROD_HOURLY_MODELS_DIR,
     WC_CODES_FILENAME,
 )
-from src.data import gather_and_transform_data, merge_weather_with_power_data
-from src.transformation import fetch_openmeteo_weather_data
+from src.data import (
+    gather_and_normalize_installation_data,
+    merge_weather_with_power_data,
+)
+from src.transformation import fetch_weather_data_for_installations
 
 from datetime import date, timedelta
 
@@ -24,34 +29,25 @@ time_resolution_options = {
     TIME_RESOLUTION_DAILY: SOLAR_PROD_DAILY_MODELS_DIR,
 }
 
+INSTALLATION_DUMMY_NAME = "installation"
 
-def retrain_model(data_path: str, selected_models_dir: str, model_name: str) -> None:
-
-    installation_name = "Unknown"
-    meta_data_dict = {
-        "timezone": st.secrets["timezone"],
-        "Wp": st.secrets["Wp"],
-        "installation": installation_name,
-        "latitude": st.secrets["latitude"],
-        "longitude": st.secrets["longitude"],
-    }
-    installation_metadata = (
-        pd.Series(
-            meta_data_dict,
-            name=meta_data_dict["installation"],
-        )
-        .to_frame()
-        .T
-    )
+def retrain_model(
+    data_path: str,
+    selected_models_dir: str,
+    model_name: str,
+    installation_metadata: dict[str, Any],
+) -> None:
 
     # transform solar data
-    all_power_data = gather_and_transform_data(
-        installation_metadata=installation_metadata, orig_data_dir_name=data_path
+    all_power_data = gather_and_normalize_installation_data(
+        orig_data_dir_name=data_path,
+        installation_name=INSTALLATION_DUMMY_NAME,
+        installation_metadata=pd.DataFrame.from_dict(
+            installation_metadata, orient="index"
+        ),
     )
 
     # fetch weather data
-    latitude = float(meta_data_dict["latitude"])
-    longitude = float(meta_data_dict["longitude"])
     start_date = date(2012, 1, 1)
     end_date = date.today() + timedelta(days=-1)
 
@@ -59,35 +55,24 @@ def retrain_model(data_path: str, selected_models_dir: str, model_name: str) -> 
         os.path.join(DATA_ORIG_DIR, WC_CODES_FILENAME), sep=";", index_col="code_figure"
     ).to_dict()["code_name"]
 
-    weather_data, meta_data = fetch_openmeteo_weather_data(
-        latitude, longitude, start_date, end_date, wc_codes=wc_codes
+    all_weather_data = fetch_weather_data_for_installations(
+        installation_metadata, wc_codes, start_date, end_date
     )
-    weather_data = weather_data.reset_index(drop=True)
-    weather_data = weather_data.rename(columns={"date": "timestamp"})
-    weather_data["installation"] = installation_name
-    weather_data = weather_data[
-        ["installation"]
-        + [col for col in weather_data.columns if col != "installation"]
-    ]
+    st.dataframe(all_power_data.head())
 
     # merge weather data with power data
     merged_data = merge_weather_with_power_data(
-        power_data_df=all_power_data, weather_data_df=weather_data
+        power_data_df=all_power_data, weather_data_df=all_weather_data
     )
 
-    from sklearn.model_selection import train_test_split
-
-    Xy_train, Xy_test = train_test_split(
-        merged_data, test_size=0.2, random_state=387
-    )
-    X_train = Xy_train.drop(columns=["power_output"])
-    y_train = Xy_train["power_output"]
-    X_test = Xy_test.drop(columns=["power_output"])
-    y_test = Xy_test["power_output"]
+    Xy_train, Xy_test = train_test_split(merged_data, test_size=0.2, random_state=387)
+    X_train = Xy_train.drop(columns=["sol_prod"])
+    y_train = Xy_train["sol_prod"]
+    X_test = Xy_test.drop(columns=["sol_prod"])
+    y_test = Xy_test["sol_prod"]
 
     # load model
-    model_name = os.path.basename(os.path.normpath(selected_models_dir))
-    path_filename_prefix = os.path.join(selected_models_dir, model_name)
+    path_filename_prefix = os.path.join(selected_models_dir, model_name, model_name)
 
     with open(f"{path_filename_prefix}.model.pkl", "rb") as f:
         estimator = pickle.load(f)
@@ -95,8 +80,6 @@ def retrain_model(data_path: str, selected_models_dir: str, model_name: str) -> 
     with open(f"{path_filename_prefix}.pipeline.pkl", "rb") as f:
         preprocessor = pickle.load(f)
 
-
-    
     # retrain model
     pipe = Pipeline(steps=[("preprocessor", preprocessor), ("estimator", estimator)])
     pipe.fit(X_train, y_train)
@@ -190,11 +173,9 @@ def render():
     df_show[error_metrics] = df_show[error_metrics]
     # df_show = df_show[~df_show["model_purpose"].str.startswith("baseline")]
 
-    # Example selectors
     target_model_timestamp = st.selectbox(
         "Select model to retrain",
-        options=list(map(str, pd.Index(df_show.index).unique())),
-        format_func=lambda x: df_show.loc[df_show.index == x, "name"].values[0],
+        options=list(map(str, df_show.loc[:,"name"])),
         key="tabretrain_eval_model_timestamp",
     )
 
@@ -215,11 +196,22 @@ def render():
         DATA_ORIG_DIR, f"retrain_data_{date.today().isoformat()}"
     )
 
-    os.makedirs(retrain_data_path, exist_ok=True)
 
     for uploaded_file in uploaded_files:
-        with open(os.path.join(retrain_data_path, uploaded_file.name), "wb") as f:
+        with open(os.path.join(retrain_data_path, INSTALLATION_DUMMY_NAME, uploaded_file.name), "wb") as f:
             f.write(uploaded_file.getbuffer())
 
+    installation_meta_data = st.secrets["installation"]
+    # restrict to first key/installation because training from
+    # multiple installations not yet supported.
+    first_installation_name = list(installation_meta_data.keys())[0]
+
+    installation_meta_data = {INSTALLATION_DUMMY_NAME: dict(installation_meta_data[first_installation_name])}
+
     if st.button("Retrain Model"):
-        retrain_model(retrain_data_path, selected_models_dir, target_model_timestamp)
+        retrain_model(
+            data_path=retrain_data_path,
+            selected_models_dir=selected_models_dir,
+            model_name=target_model_timestamp,
+            installation_metadata=installation_meta_data,
+        )
