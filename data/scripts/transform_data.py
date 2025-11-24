@@ -10,7 +10,7 @@ from src.config import (
     DATA_RAW_FILENAME,
     INSTALLATION_DATA_FILENAME,
 )
-from src.data import gather_and_transform_data
+from src.data import gather_and_transform_data_all_installations
 
 if __name__ == "__main__":
     installation_metadata = pd.read_csv(
@@ -19,7 +19,7 @@ if __name__ == "__main__":
         index_col="installation",
     )
 
-    all_power_data = gather_and_transform_data(
+    all_power_data = gather_and_transform_data_all_installations(
         installation_metadata=installation_metadata, orig_data_dir_name=DATA_ORIG_DIR
     )
 

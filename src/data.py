@@ -47,7 +47,96 @@ def ensure_utc_series(s: pd.Series, target_timezone) -> pd.Series:
     return s.dt.tz_convert("UTC")
 
 
-def gather_and_transform_data(
+_column_translations = {
+    "installation": "installation",
+    "timestamp": "timestamp",
+    "Ladezustand": "soc",
+    "Batterie (Laden)": "bat_charge",
+    "Batterie (Entladen)": "bat_discharge",
+    "Netzeinspeisung": "grid_feed_in",
+    "Netzbezug": "grid_cons",
+    "Solarproduktion Tracker 1": "sol_prod_1",
+    "Solarproduktion Tracker 2": "sol_prod_2",
+    "Solarproduktion Tracker 3": "sol_prod_3",
+    "Solarproduktion": "sol_prod",
+    "Hausverbrauch": "house_cons",
+    "ADDITIONAL Verbrauch": "add_cons",
+    "ext. Verbrauch": "ext_cons",
+    "Σ Verbrauch": "tot_cons",
+    "Wallbox (ID 0) Gesamtladeleistung": "wb_0_tot_charge",
+    "Wallbox (ID 0) Netzbezug": "wb_0_grid_cons",
+    "Wallbox (ID 0) Solarladeleistung": "wb_0_sol_charge",
+    "Wallbox Gesamtladeleistung": "wb_tot_charge",
+}
+"""Mapping of original column names to standardized column names."""
+
+
+def gather_and_normalize_installation_data(
+    orig_data_dir_name, installation_name, installation_metadata
+):
+    installation_data = pd.DataFrame(
+        columns=_column_translations.values(),
+        dtype=str,
+    )
+
+    power_columns = [
+        "bat_charge",
+        "bat_discharge",
+        "grid_feed_in",
+        "grid_cons",
+        "sol_prod_1",
+        "sol_prod_2",
+        "sol_prod_3",
+        "sol_prod",
+        "house_cons",
+        "add_cons",
+        "ext_cons",
+        "tot_cons",
+        "wb_0_tot_charge",
+        "wb_0_grid_cons",
+        "wb_0_sol_charge",
+        "wb_tot_charge",
+    ]
+    """The columns that are used for power measurements."""
+
+    peak_power = float(installation_metadata.loc[installation_name, "Wp"])
+    timezone = installation_metadata.loc[installation_name, "timezone"]
+
+    for file in os.listdir(os.path.join(orig_data_dir_name, installation_name)):
+        if not file.endswith(".csv"):
+            continue
+
+            # Construct the full path to the original data file
+        orig_file_path = os.path.join(orig_data_dir_name, installation_name, file)
+
+        # Read the original data file
+        df = pd.read_csv(orig_file_path, sep=";", dtype=str)
+
+        df["installation"] = installation_name
+        df = df.rename(columns=_column_translations)
+
+        df["soc"] = df["soc"].apply(pd.to_numeric, errors="coerce").div(100)
+
+        # normalize all power values as part of the peak power
+        # provides comparability across installations
+        # anonymize the installation owner further by not giving details about the installation
+        this_power_columns = [col for col in power_columns if col in df.columns]
+
+        df[this_power_columns] = (
+            df[this_power_columns].apply(pd.to_numeric, errors="coerce").div(peak_power)
+        )
+
+        df["timestamp"] = ensure_utc_series(df["timestamp"], timezone)
+
+        # Append the data to the installation_data DataFrame
+        installation_data = pd.concat(
+            [installation_data, df], ignore_index=True, axis=0
+        )
+
+    return installation_data
+
+
+def gather_and_transform_data_all_installations(
     installation_metadata: pd.DataFrame,
     orig_data_dir_name: str,
 ) -> pd.DataFrame:
@@ -72,51 +161,8 @@ def gather_and_transform_data(
         The combined and transformed power data from all installations.
     """
 
-    column_translations = {
-        "installation": "installation",
-        "timestamp": "timestamp",
-        "Ladezustand": "soc",
-        "Batterie (Laden)": "bat_charge",
-        "Batterie (Entladen)": "bat_discharge",
-        "Netzeinspeisung": "grid_feed_in",
-        "Netzbezug": "grid_cons",
-        "Solarproduktion Tracker 1": "sol_prod_1",
-        "Solarproduktion Tracker 2": "sol_prod_2",
-        "Solarproduktion Tracker 3": "sol_prod_3",
-        "Solarproduktion": "sol_prod",
-        "Hausverbrauch": "house_cons",
-        "ADDITIONAL Verbrauch": "add_cons",
-        "ext. Verbrauch": "ext_cons",
-        "Σ Verbrauch": "tot_cons",
-        "Wallbox (ID 0) Gesamtladeleistung": "wb_0_tot_charge",
-        "Wallbox (ID 0) Netzbezug": "wb_0_grid_cons",
-        "Wallbox (ID 0) Solarladeleistung": "wb_0_sol_charge",
-        "Wallbox Gesamtladeleistung": "wb_tot_charge",
-    }
-    """Mapping of original column names to standardized column names."""
-
-    power_columns = [
-        "bat_charge",
-        "bat_discharge",
-        "grid_feed_in",
-        "grid_cons",
-        "sol_prod_1",
-        "sol_prod_2",
-        "sol_prod_3",
-        "sol_prod",
-        "house_cons",
-        "add_cons",
-        "ext_cons",
-        "tot_cons",
-        "wb_0_tot_charge",
-        "wb_0_grid_cons",
-        "wb_0_sol_charge",
-        "wb_tot_charge",
-    ]
-    """The columns that are used for power measurements."""
-
     all_power_data = pd.DataFrame(
-        columns=column_translations.values(),
+        columns=_column_translations.values(),
         dtype=str,
     )
 
@@ -124,48 +170,11 @@ def gather_and_transform_data(
         if not os.path.isdir(os.path.join(orig_data_dir_name, dir)):
             continue
 
-        peak_power = float(installation_metadata.loc[dir, "Wp"])
-        timezone = installation_metadata.loc[dir, "timezone"]
+        print(f"Processing installation: {dir}")
 
-        print(f"Processing installation: {dir} with peak power {peak_power} W")
-
-        installation_data = pd.DataFrame(
-            columns=column_translations.values(),
-            dtype=str,
+        installation_data = gather_and_normalize_installation_data(
+            orig_data_dir_name, dir, installation_metadata
         )
-
-        for file in os.listdir(os.path.join(orig_data_dir_name, dir)):
-            if not file.endswith(".csv"):
-                continue
-
-            # Construct the full path to the original data file
-            orig_file_path = os.path.join(orig_data_dir_name, dir, file)
-
-            # Read the original data file
-            df = pd.read_csv(orig_file_path, sep=";", dtype=str)
-
-            df["installation"] = dir
-            df = df.rename(columns=column_translations)
-
-            df["soc"] = df["soc"].apply(pd.to_numeric, errors="coerce").div(100)
-
-            # normalize all power values as part of the peak power
-            # provides comparability across installations
-            # anonymize the installation owner further by not giving details about the installation
-            this_power_columns = [col for col in power_columns if col in df.columns]
-
-            df[this_power_columns] = (
-                df[this_power_columns]
-                .apply(pd.to_numeric, errors="coerce")
-                .div(peak_power)
-            )
-
-            df["timestamp"] = ensure_utc_series(df["timestamp"], timezone)
-
-            # Append the data to the installation_data DataFrame
-            installation_data = pd.concat(
-                [installation_data, df], ignore_index=True, axis=0
-            )
 
         # Append the data to the all_data DataFrame
         all_power_data = pd.concat(
